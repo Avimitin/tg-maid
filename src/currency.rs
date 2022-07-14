@@ -149,7 +149,7 @@ impl ApiFetcher {
             };
         }
 
-        // Thanks Asuna (GitHub @SpiriteOvO)
+        // Thanks Asuna (GitHub @SpriteOvO)
         let fallbacks_urls = format_array!([
               "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{from}/{to}.min.json",
               "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{from}/{to}.json",
