@@ -1,8 +1,9 @@
 mod bot;
 mod currency;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     dotenv::dotenv().ok();
 
-    crate::bot::run();
+    crate::bot::run().await;
 }

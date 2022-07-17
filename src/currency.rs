@@ -1,19 +1,24 @@
 use anyhow::Result;
 
-pub trait CurrencyTempStorage {
-    fn is_outdated(&self) -> bool;
-    fn store<F: Into<String>, T: Into<String>>(&mut self, from: F, to: T, rate: f64) -> Result<()>;
-    fn get(&self, from: &str, to: &str) -> Option<f64>;
-    fn update_codes(&mut self, codes: HashMap<String, String>);
-    fn has_code(&self, code: &str) -> bool;
+#[derive(Debug, Clone)]
+struct RateInfo {
+    date: String,
+    rate: f64,
 }
 
-pub struct Currency<T: CurrencyTempStorage> {
+pub trait CurrenciesStorage {
+    fn is_outdated(&self) -> bool;
+    fn update(&mut self, codes: HashMap<String, String>);
+    fn get_fullname(&self, code: &str) -> Option<&str>;
+}
+
+#[derive(Debug, Clone)]
+pub struct RateCalculator<T: CurrenciesStorage> {
     cache: T,
     api: ApiFetcher,
 }
 
-impl<T: CurrencyTempStorage> Currency<T> {
+impl<T: CurrenciesStorage> RateCalculator<T> {
     pub fn new(cache: T) -> Self {
         Self {
             cache,
@@ -22,73 +27,72 @@ impl<T: CurrencyTempStorage> Currency<T> {
     }
 
     pub fn is_valid_code(&self, code: &str) -> bool {
-        self.cache.has_code(code)
+        self.cache.get_fullname(code).is_some()
     }
 
     /// Calculate the currency by rate
-    pub async fn calc(&mut self, amount: f64, from: &str, to: &str) -> Result<f64> {
-        // FIXME: Can we remove this hierachy in logic?
-        let rate = if self.cache.is_outdated() {
+    pub async fn calc(&mut self, amount: f64, from: &str, to: &str) -> Result<(f64, String)> {
+        if self.cache.is_outdated() {
             let codes = self.api.fetch_latest_code().await?;
-            self.cache.update_codes(codes);
-            let rate = self.api.fetch_latest_rate(from, to).await?;
-            self.cache.store(from, to, rate)?;
+            self.cache.update(codes);
+        }
 
-            rate
-        } else {
-            if let Some(rate) = self.cache.get(from, to) {
-                rate
-            } else {
-                let rate = self.api.fetch_latest_rate(from, to).await?;
-                self.cache.store(from, to, rate)?;
+        if !self.is_valid_code(from) {
+            anyhow::bail!("invalid code `{from}`")
+        }
 
-                rate
-            }
-        };
+        if !self.is_valid_code(to) {
+            anyhow::bail!("invalid code `{to}`")
+        }
 
-        Ok(rate * amount)
+        let rate_info = self.api.fetch_latest_rate(from, to).await?;
+        Ok((rate_info.rate * amount, rate_info.date))
+    }
+
+    pub fn get_fullname(&self, code: &str) -> Option<&str> {
+        self.cache.get_fullname(code)
     }
 }
 
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
 pub struct InMemCache {
-    last_update: chrono::DateTime<chrono::Utc>,
-    rate: HashMap<String, HashMap<String, f64>>,
+    last_update: Option<chrono::DateTime<chrono::Utc>>,
     codes: HashMap<String, String>,
 }
 
-impl CurrencyTempStorage for InMemCache {
-    fn store<F: Into<String>, T: Into<String>>(&mut self, from: F, to: T, rate: f64) -> Result<()> {
-        let from = from.into();
-        let to = to.into();
-
-        let inner = self.rate.entry(from).or_insert(HashMap::new());
-        inner.insert(to, rate);
-
-        Ok(())
-    }
-
-    fn get(&self, from: &str, to: &str) -> Option<f64> {
-        let inner = self.rate.get(from)?;
-        inner.get(to).map(|rate| *rate)
-    }
-
-    fn is_outdated(&self) -> bool {
-        let now = chrono::Utc::now();
-
-        now - self.last_update > chrono::Duration::days(1)
-    }
-
-    fn update_codes(&mut self, codes: HashMap<String, String>) {
-        self.codes = codes
-    }
-
-    fn has_code(&self, code: &str) -> bool {
-        self.codes.get(code).is_some()
+impl InMemCache {
+    pub fn new() -> Self {
+        Self {
+            last_update: None,
+            codes: HashMap::new(),
+        }
     }
 }
 
+impl CurrenciesStorage for InMemCache {
+    fn is_outdated(&self) -> bool {
+        if let Some(date) = self.last_update {
+            let now = chrono::Utc::now();
+
+            now - date > chrono::Duration::days(1)
+        } else {
+            true
+        }
+    }
+
+    fn update(&mut self, codes: HashMap<String, String>) {
+        self.codes = codes;
+        self.last_update = Some(chrono::Utc::now());
+    }
+
+    fn get_fullname(&self, code: &str) -> Option<&str> {
+        self.codes.get(code).map(|s| s.as_str())
+    }
+}
+
+#[derive(Debug, Clone)]
 struct ApiFetcher {
     http_client: reqwest::Client,
 }
@@ -142,7 +146,7 @@ impl ApiFetcher {
         Ok(serde_json::from_slice(&byte)?)
     }
 
-    pub async fn fetch_latest_rate(&self, from: &str, to: &str) -> Result<f64> {
+    pub async fn fetch_latest_rate(&self, from: &str, to: &str) -> Result<RateInfo> {
         macro_rules! format_array {
             ( [ $( $pattern:literal ),+ $(,)? ] ) => {
                 [ $( format!($pattern ) ),+ ]
@@ -181,10 +185,34 @@ impl ApiFetcher {
 
         let byte = byte.unwrap();
 
-        let response: HashMap<String, String> = serde_json::from_slice(&byte)?;
-        Ok(response
+        #[derive(serde::Deserialize)]
+        #[serde(untagged)]
+        enum Value {
+            Float(f64),
+            String(String),
+        }
+
+        let response: HashMap<String, Value> = serde_json::from_slice(&byte)?;
+        let rate = response
             .get(to)
-            .ok_or_else(|| anyhow::anyhow!("fail to get response"))?
-            .parse()?)
+            .ok_or_else(|| anyhow::anyhow!("fail to get response"))?;
+        let date = response
+            .get("date")
+            .expect("Expect response contains date field, but got nil");
+
+        let rate = match rate {
+            Value::Float(f) => f,
+            _ => panic!("currency return non-float rate"),
+        };
+
+        let date = match date {
+            Value::String(s) => s,
+            _ => panic!("currency return non-string date"),
+        };
+
+        Ok(RateInfo {
+            date: date.to_string(),
+            rate: *rate,
+        })
     }
 }
