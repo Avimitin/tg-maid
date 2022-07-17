@@ -85,9 +85,9 @@ async fn calculate_exchange(msg: Message, rt: Runtime) -> Result<String> {
 Date: {}
                "#,
         from.to_uppercase(),
-        calculator.get_fullname(&from).unwrap(),
+        calculator.get_fullname(&from).await.unwrap(),
         to.to_uppercase(),
-        calculator.get_fullname(&to).unwrap(),
+        calculator.get_fullname(&to).await.unwrap(),
         amount,
         result,
         date
