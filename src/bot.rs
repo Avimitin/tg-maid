@@ -1,4 +1,5 @@
-use crate::currency::{InMemCache, RateCalculator};
+use crate::modules::currency::{InMemCache, RateCalculator};
+use crate::modules::weather::{self, WeatherFetcher};
 use anyhow::Result;
 use std::sync::Arc;
 use teloxide::{prelude::*, utils::command::BotCommands};
@@ -10,6 +11,7 @@ use tokio::sync::Mutex;
 #[derive(Clone, Debug)]
 struct Runtime {
     currency: Arc<Mutex<RateCalculator<InMemCache>>>,
+    weather: Arc<weather::WttrInApi>,
 }
 
 impl Runtime {
@@ -17,6 +19,7 @@ impl Runtime {
         let cache = InMemCache::new();
         Self {
             currency: Arc::new(Mutex::new(RateCalculator::new(cache))),
+            weather: Arc::new(weather::WttrInApi::new()),
         }
     }
 }
@@ -24,18 +27,14 @@ impl Runtime {
 #[derive(BotCommands, Clone, Debug)]
 #[command(rename = "lowercase", description = "These commands are supported:")]
 enum Command {
-
     #[command(description = "Display this help message")]
     Help,
 
     #[command(description = "Search exchange rate. Usage example: /exchange 1 usd cny")]
     Exchange,
 
-    #[command(
-        description = "Search weather. Usage example: /weather 上海",
-        parse_with = "split"
-    )]
-    Weather { city: String },
+    #[command(description = "Search weather. Usage example: /weather 上海")]
+    Weather,
 
     #[command(description = "获取买家秀")]
     Mjx,
@@ -94,7 +93,7 @@ Date: {}
     ))
 }
 
-async fn cmd_exchange(msg: Message, bot: AutoSend<Bot>, rt: Runtime) -> Result<()> {
+async fn exchange_handler(msg: Message, bot: AutoSend<Bot>, rt: Runtime) -> Result<()> {
     let chat_id = msg.chat.id;
 
     let callback = bot.send_message(chat_id, "Fetching API...").await?;
@@ -114,15 +113,49 @@ async fn cmd_exchange(msg: Message, bot: AutoSend<Bot>, rt: Runtime) -> Result<(
     Ok(())
 }
 
-async fn cmd_help(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
-    bot.send_message(msg.chat.id, Command::descriptions().to_string()).await?;
+async fn help_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
+    bot.send_message(msg.chat.id, Command::descriptions().to_string())
+        .await?;
+    Ok(())
+}
+
+async fn get_weather(msg: Message, rt: Runtime) -> Result<String> {
+    let text = msg.text().unwrap();
+    let parts = text.split(" ").collect::<Vec<&str>>();
+    if parts.len() < 2 {
+        anyhow::bail!("No enough argument. Usage example: /weather 上海")
+    }
+
+    let text = rt.weather.query(parts[1]).await?;
+    let pic = rt.weather.pic(parts[1]);
+    Ok(format!("<a href=\"{pic}\">{text}</a>"))
+}
+
+async fn weather_handler(msg: Message, bot: AutoSend<Bot>, rt: Runtime) -> Result<()> {
+    let chat_id = msg.chat.id;
+    bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await?;
+    let response = get_weather(msg, rt).await;
+
+    match response {
+        Ok(text) => {
+            bot.send_message(chat_id, text)
+                .parse_mode(teloxide::types::ParseMode::Html)
+                .await?
+        }
+        Err(e) => {
+            bot.send_message(chat_id, format!("fail to get weather:\n{e}"))
+                .await?
+        }
+    };
+
     Ok(())
 }
 
 pub async fn run() {
     let commands_handler = teloxide::filter_command::<Command, _>()
-        .branch(dptree::case![Command::Exchange].endpoint(cmd_exchange))
-        .branch(dptree::case![Command::Help].endpoint(cmd_help));
+        .branch(dptree::case![Command::Exchange].endpoint(exchange_handler))
+        .branch(dptree::case![Command::Help].endpoint(help_handler))
+        .branch(dptree::case![Command::Weather].endpoint(weather_handler));
 
     let handler = Update::filter_message().branch(commands_handler);
 
