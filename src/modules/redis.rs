@@ -1,4 +1,4 @@
-use crate::currency::CurrenciesStorage;
+use crate::modules::currency::CurrenciesStorage;
 use redis::{aio::Connection, AsyncCommands};
 use std::collections::HashMap;
 

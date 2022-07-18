@@ -1,8 +1,5 @@
 mod bot;
-mod currency;
-
-#[cfg(feature = "redis")]
-mod redis;
+mod modules;
 
 #[tokio::main]
 async fn main() {
