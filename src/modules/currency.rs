@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 struct RateInfo {
@@ -8,8 +9,8 @@ struct RateInfo {
 
 #[async_trait::async_trait]
 pub trait CurrenciesStorage: Send + Sync + Clone {
-    async fn is_outdated(&mut self) -> bool;
-    async fn update(&mut self, codes: HashMap<String, String>);
+    async fn verify_date(&mut self) -> bool;
+    async fn update_currency_codes(&mut self, codes: HashMap<String, String>);
     async fn get_fullname(&mut self, code: &str) -> Option<String>;
 }
 
@@ -27,22 +28,22 @@ impl<T: CurrenciesStorage> RateCalculator<T> {
         }
     }
 
-    pub async fn is_valid_code(&mut self, code: &str) -> bool {
+    pub async fn verify_code(&mut self, code: &str) -> bool {
         self.cache.get_fullname(code).await.is_some()
     }
 
     /// Calculate the currency by rate
     pub async fn calc(&mut self, amount: f64, from: &str, to: &str) -> Result<(f64, String)> {
-        if self.cache.is_outdated().await {
+        if self.cache.verify_date().await {
             let codes = self.api.fetch_latest_code().await?;
-            self.cache.update(codes).await;
+            self.cache.update_currency_codes(codes).await;
         }
 
-        if !self.is_valid_code(from).await {
+        if !self.verify_code(from).await {
             anyhow::bail!("invalid code `{from}`")
         }
 
-        if !self.is_valid_code(to).await {
+        if !self.verify_code(to).await {
             anyhow::bail!("invalid code `{to}`")
         }
 
@@ -52,45 +53,6 @@ impl<T: CurrenciesStorage> RateCalculator<T> {
 
     pub async fn get_fullname(&mut self, code: &str) -> Option<String> {
         self.cache.get_fullname(code).await
-    }
-}
-
-use std::collections::HashMap;
-
-#[derive(Debug, Clone)]
-pub struct InMemCache {
-    last_update: Option<chrono::DateTime<chrono::Utc>>,
-    codes: HashMap<String, String>,
-}
-
-impl InMemCache {
-    pub fn new() -> Self {
-        Self {
-            last_update: None,
-            codes: HashMap::new(),
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl CurrenciesStorage for InMemCache {
-    async fn is_outdated(&mut self) -> bool {
-        if let Some(date) = self.last_update {
-            let now = chrono::Utc::now();
-
-            now - date > chrono::Duration::days(1)
-        } else {
-            true
-        }
-    }
-
-    async fn update(&mut self, codes: HashMap<String, String>) {
-        self.codes = codes;
-        self.last_update = Some(chrono::Utc::now());
-    }
-
-    async fn get_fullname(&mut self, code: &str) -> Option<String> {
-        self.codes.get(code).map(|s| s.to_string())
     }
 }
 
