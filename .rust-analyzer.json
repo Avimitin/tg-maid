@@ -1,7 +1,0 @@
-{
-  "cargo": {
-    "features": [
-      "redis"
-    ]
-  }
-}

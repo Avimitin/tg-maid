@@ -1,11 +1,11 @@
 #[async_trait::async_trait]
-pub trait WeatherFetcher {
+pub trait WeatherFetcher: Send + Sync + Clone {
     async fn query(&self, city: &str) -> anyhow::Result<String>;
 }
 
 const WTTR_IN_URL: &str = "https://wttr.in";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WttrInApi {
     client: reqwest::Client,
 }

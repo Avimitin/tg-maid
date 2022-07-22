@@ -1,13 +1,15 @@
+use crate::modules::collect::{Collector, Pair};
 use crate::modules::currency::CurrenciesStorage;
-use redis::{aio::Connection, AsyncCommands};
+use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
 
 const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
 const CODE_PREFIX_KEY: &str = "currency-code";
 const DATE_KEY: &str = "currency-last-update";
 
+// FIXME: reimplement trait for redis client
 #[async_trait::async_trait]
-impl CurrenciesStorage for Connection {
+impl CurrenciesStorage for ConnectionManager {
     async fn update(&mut self, codes: HashMap<String, String>) {
         for (k, v) in codes {
             match self.hset(CODE_PREFIX_KEY, k, v).await {
@@ -36,5 +38,23 @@ impl CurrenciesStorage for Connection {
 
     async fn get_fullname(&mut self, code: &str) -> Option<String> {
         self.hget("currency-code", code).await.ok()
+    }
+}
+
+#[async_trait::async_trait]
+impl Collector for ConnectionManager {
+    async fn push(&mut self, uid: u64, pair: Pair) -> anyhow::Result<u32> {
+        let size: u32 = self.rpush(uid, format!("{}: {}", pair.0, pair.1)).await?;
+        Ok(size)
+    }
+
+    async fn finish(&mut self, uid: u64) -> Option<String> {
+        let result: Vec<String> = self.lrange(uid, 0, -1).await.ok()?;
+        self.del(uid).await.ok()?;
+        Some(
+            result
+                .iter()
+                .fold(String::new(), |acc, x| format!("{}\n{}", acc, x)),
+        )
     }
 }

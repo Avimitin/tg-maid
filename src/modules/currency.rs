@@ -7,7 +7,7 @@ struct RateInfo {
 }
 
 #[async_trait::async_trait]
-pub trait CurrenciesStorage {
+pub trait CurrenciesStorage: Send + Sync + Clone {
     async fn is_outdated(&mut self) -> bool;
     async fn update(&mut self, codes: HashMap<String, String>);
     async fn get_fullname(&mut self, code: &str) -> Option<String>;
