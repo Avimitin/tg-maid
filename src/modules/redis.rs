@@ -1,4 +1,4 @@
-use crate::modules::collect::{Collector, Message};
+use crate::modules::collect::{Collector, MsgForm};
 use crate::modules::currency::CurrenciesStorage;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
@@ -43,8 +43,8 @@ impl CurrenciesStorage for ConnectionManager {
 
 #[async_trait::async_trait]
 impl Collector for ConnectionManager {
-    async fn push(&mut self, uid: u64, pair: Message) -> anyhow::Result<u32> {
-        let size: u32 = self.rpush(uid, format!("{}: {}", pair.0, pair.1)).await?;
+    async fn push(&mut self, uid: u64, pair: MsgForm) -> anyhow::Result<u32> {
+        let size: u32 = self.rpush(uid, format!("{}: {}", pair.sender, pair.text)).await?;
         Ok(size)
     }
 
