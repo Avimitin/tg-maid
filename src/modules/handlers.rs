@@ -1,7 +1,7 @@
 use crate::modules::runtime::Runtime;
 use anyhow::Result;
 use redis::aio::ConnectionManager as redis_cm;
-use teloxide::dispatching::{UpdateHandler, dialogue};
+use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::prelude::*;
 
 use crate::modules::weather;
@@ -18,35 +18,75 @@ impl std::default::Default for DialogueStatus {
     }
 }
 
+type Dialogue = dialogue::Dialogue<DialogueStatus, dialogue::InMemStorage<DialogueStatus>>;
+type RedisRT = Runtime<redis_cm, redis_cm, weather::WttrInApi>;
+
 pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
 
-    let commands_handler = teloxide::filter_command::<Command, _>()
+    let stateless_cmd_handler = teloxide::filter_command::<Command, _>()
         .branch(dptree::case![Command::Exchange].endpoint(exchange_handler))
         .branch(dptree::case![Command::Help].endpoint(help_handler))
-        .branch(dptree::case![Command::Weather].endpoint(weather_handler));
+        .branch(dptree::case![Command::Weather].endpoint(weather_handler))
+        .branch(dptree::case![Command::Collect].endpoint(collect_handler));
+
+    let stausful_cmd_handler = teloxide::filter_command::<Command, _>()
+        .branch(dptree::case![Command::CollectDone].endpoint(exit_collect_handler));
 
     let msg_handler = Update::filter_message()
-        .branch(dptree::case![DialogueStatus::None].branch(commands_handler))
+        .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
+        .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stausful_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_handler));
 
     let root = dptree::entry().branch(msg_handler);
 
-    dialogue::enter::<
-        Update,
-        dialogue::InMemStorage<DialogueStatus>,
-        DialogueStatus,
-        _
-        >().branch(root)
+    dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
+        .branch(root)
 }
 
-async fn collect_handler() -> Result<()> {
-    todo!()
+async fn collect_handler(msg: Message, bot: AutoSend<Bot>, dialogue: Dialogue) -> Result<()> {
+    bot.send_message(
+        msg.chat.id,
+        "你可以开始转发信息了，使用命令 /collect_done 来结束命令收集",
+    )
+    .await?;
+    dialogue.update(DialogueStatus::CmdCollectRunning).await?;
+    Ok(())
+}
+
+async fn exit_collect_handler(
+    msg: Message,
+    bot: AutoSend<Bot>,
+    dialogue: Dialogue,
+    rt: RedisRT,
+) -> Result<()> {
+    let msg_id = bot
+        .send_message(msg.chat.id, "收集完毕，正在处理信息...")
+        .await?
+        .id;
+    dialogue.exit().await?;
+
+    let mut collector = rt.collector.lock().await;
+    use super::collect::Collector;
+
+    // FIXME: Can I guarantee that command must came from a user?
+    let result = collector
+        .finish(msg.from().expect("Message came from non-user").id.0)
+        .await;
+    match result {
+        Some(s) => bot.edit_message_text(msg.chat.id, msg_id, s).await?,
+        None => {
+            bot.edit_message_text(msg.chat.id, msg_id, "你还没有收集过消息")
+                .await?
+        }
+    };
+
+    Ok(())
 }
 
 async fn calculate_exchange(
     msg: Message,
-    rt: Runtime<redis_cm, redis_cm, weather::WttrInApi>,
+    rt: RedisRT,
 ) -> Result<String> {
     let text = msg
         .text()
@@ -121,7 +161,7 @@ async fn get_weather(
     use crate::modules::weather::WeatherFetcher;
 
     let text = msg.text().unwrap();
-    let parts = text.split(" ").collect::<Vec<&str>>();
+    let parts = text.split(' ').collect::<Vec<&str>>();
     if parts.len() < 2 {
         anyhow::bail!("No enough argument. Usage example: /weather 上海")
     }
