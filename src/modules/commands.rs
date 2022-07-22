@@ -24,6 +24,9 @@ pub enum Command {
     #[command(description = "收集所有内容并合并")]
     Collect,
 
+    #[command(description = "结束收集")]
+    CollectDone,
+
     #[command(description = "Search package information in Arch Linux Repo and AUR")]
     Pacman,
 
