@@ -36,12 +36,34 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     let msg_handler = Update::filter_message()
         .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stausful_cmd_handler))
-        .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_handler));
+        .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_message));
 
     let root = dptree::entry().branch(msg_handler);
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
+    let mut collector = rt.collector.lock().await;
+    let who_want_these = msg
+        .from()
+        .expect("Unexpectedly add non-user into dialogue")
+        .id
+        .0;
+
+    let msg_from = msg
+        .forward_from_user()
+        .ok_or_else(|| anyhow::anyhow!("no user given"))?
+        .first_name
+        .to_string();
+    let msg_text = msg.text().unwrap_or("Null").to_string();
+
+    use crate::modules::collect::{Collector, MsgForm};
+    collector
+        .push(who_want_these, MsgForm::new(msg_from, msg_text))
+        .await?;
+    Ok(())
 }
 
 async fn collect_handler(msg: Message, bot: AutoSend<Bot>, dialogue: Dialogue) -> Result<()> {
@@ -84,10 +106,7 @@ async fn exit_collect_handler(
     Ok(())
 }
 
-async fn calculate_exchange(
-    msg: Message,
-    rt: RedisRT,
-) -> Result<String> {
+async fn calculate_exchange(msg: Message, rt: RedisRT) -> Result<String> {
     let text = msg
         .text()
         .ok_or_else(|| anyhow::anyhow!("Can not process empty text message"))?;
