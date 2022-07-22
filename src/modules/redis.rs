@@ -1,4 +1,4 @@
-use crate::modules::collect::{Collector, Pair};
+use crate::modules::collect::{Collector, Message};
 use crate::modules::currency::CurrenciesStorage;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
@@ -10,22 +10,22 @@ const DATE_KEY: &str = "currency-last-update";
 // FIXME: reimplement trait for redis client
 #[async_trait::async_trait]
 impl CurrenciesStorage for ConnectionManager {
-    async fn update(&mut self, codes: HashMap<String, String>) {
+    async fn update_currency_codes(&mut self, codes: HashMap<String, String>) {
         for (k, v) in codes {
-            match self.hset(CODE_PREFIX_KEY, k, v).await {
-                Err(_e) => {}
-                Ok(()) => {}
+            let response: Result<(), _> = self.hset(CODE_PREFIX_KEY, k, v).await;
+            if let Err(_e) = response {
+                // TODO: report
             }
         }
 
         let date = chrono::Utc::now().format(DATE_FORMAT).to_string();
-        match self.set("currency-last-update", date).await {
-            Err(_e) => {}
-            Ok(()) => {}
-        };
+        let response: Result<(), _> = self.set("currency-last-update", date).await;
+        if let Err(_e) = response {
+            // TODO: report
+        }
     }
 
-    async fn is_outdated(&mut self) -> bool {
+    async fn verify_date(&mut self) -> bool {
         let last_date: Option<String> = self.get(DATE_KEY).await.ok();
         if let Some(last_date) = last_date {
             let date = chrono::NaiveDateTime::parse_from_str(&last_date, DATE_FORMAT)
@@ -43,7 +43,7 @@ impl CurrenciesStorage for ConnectionManager {
 
 #[async_trait::async_trait]
 impl Collector for ConnectionManager {
-    async fn push(&mut self, uid: u64, pair: Pair) -> anyhow::Result<u32> {
+    async fn push(&mut self, uid: u64, pair: Message) -> anyhow::Result<u32> {
         let size: u32 = self.rpush(uid, format!("{}: {}", pair.0, pair.1)).await?;
         Ok(size)
     }
