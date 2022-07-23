@@ -6,8 +6,15 @@ pub enum Command {
     #[command(description = "Display this help message")]
     Help,
 
-    #[command(description = "Search exchange rate. Usage example: /exchange 1 usd cny")]
-    Exchange,
+    #[command(
+        description = "Search exchange rate. Usage example: /exchange 1 usd cny",
+        parse_with = "split"
+    )]
+    Exchange {
+        amount: f64,
+        from: String,
+        to: String,
+    },
 
     #[command(description = "Search weather. Usage example: /weather 上海")]
     Weather,

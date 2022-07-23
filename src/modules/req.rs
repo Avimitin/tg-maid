@@ -1,5 +1,21 @@
+use crate::modules::types;
 use anyhow::Context;
 use rand::Rng;
+use std::collections::HashMap;
+
+lazy_static::lazy_static! {
+    static ref CURRENCY_CODE_URLS: Vec<reqwest::Url> = {
+        vec![
+            "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.min.json",
+            "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.json",
+            "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies.min.json",
+            "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies.json"
+        ]
+        .iter()
+        .map(|url| reqwest::Url::parse(url).unwrap())
+        .collect()
+    };
+}
 
 /// A wrapper for re-using the reqwest client.
 #[derive(Debug)]
@@ -70,5 +86,73 @@ impl Client {
         )?;
         let resp = self.c.get(url).send().await?.text().await?;
         Ok((resp, format!("{WTTR_IN_URL}/{city}.png")))
+    }
+
+    pub async fn get_currency_codes(&self) -> anyhow::Result<HashMap<String, String>> {
+        let mut error_trace = Vec::new();
+        for url in CURRENCY_CODE_URLS.iter() {
+            match self.to_t::<HashMap<String, String>>(url.clone()).await {
+                Ok(codes) => {
+                    return Ok(codes);
+                }
+                Err(e) => {
+                    // TODO: Logging
+                    error_trace.push(e.to_string())
+                }
+            }
+        }
+
+        anyhow::bail!("fail to fetch currencies: {}", error_trace.join("\n\n"))
+    }
+
+    pub async fn get_currency_rate(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> anyhow::Result<types::CurrencyRateInfo> {
+        macro_rules! format_array {
+            ( [ $( $pattern:literal ),+ $(,)? ] ) => {
+                [ $( format!($pattern ) ),+ ]
+            };
+        }
+
+        // Thanks Asuna (GitHub @SpriteOvO)
+        let fallbacks_urls = format_array!([
+              "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{from}/{to}.min.json",
+              "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{from}/{to}.json",
+              "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies/{from}/{to}.min.json",
+              "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies/{from}/{to}.json"
+        ]);
+
+        let mut error_trace = Vec::new();
+        for url in &fallbacks_urls {
+            let url = reqwest::Url::parse(url)
+                .with_context(|| format!("invalid url input: {from} and {to}"))?;
+
+            match self
+                .to_t::<HashMap<String, types::CurrencyV1PossibleResponse>>(url)
+                .await
+            {
+                Ok(res) => {
+                    let rate = res
+                        .get(to)
+                        .ok_or_else(|| anyhow::anyhow!("fail to get response"))?
+                        .unwrap_rate();
+                    let date = res
+                        .get("date")
+                        .expect("Expect response contains date field, but got nil")
+                        .unwrap_date();
+                    return Ok(types::CurrencyRateInfo::new(date, rate));
+                }
+                Err(e) => {
+                    error_trace.push(e.to_string());
+                }
+            }
+        }
+
+        anyhow::bail!(
+            "fail to send request to all currency API: {}",
+            error_trace.join("\n\n")
+        )
     }
 }

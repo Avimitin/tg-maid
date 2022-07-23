@@ -70,6 +70,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "dotenv",
+ "lazy_static",
  "rand",
  "redis",
  "reqwest",

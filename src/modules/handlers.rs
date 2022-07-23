@@ -5,6 +5,8 @@ use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
+use super::currency::CurrenciesStorage;
+
 #[derive(Clone)]
 pub enum DialogueStatus {
     None,
@@ -24,7 +26,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
 
     let stateless_cmd_handler = teloxide::filter_command::<Command, _>()
-        .branch(dptree::case![Command::Exchange].endpoint(exchange_handler))
+        .branch(dptree::case![Command::Exchange { amount, from, to }].endpoint(exchange_handler))
         .branch(dptree::case![Command::Help].endpoint(help_handler))
         .branch(dptree::case![Command::Weather].endpoint(weather_handler))
         .branch(dptree::case![Command::Ghs].endpoint(ghs_handler))
@@ -127,22 +129,27 @@ async fn exit_collect_handler(
     Ok(())
 }
 
-async fn calculate_exchange(msg: Message, rt: RedisRT) -> Result<String> {
-    let text = msg
-        .text()
-        .ok_or_else(|| anyhow::anyhow!("Can not process empty text message"))?;
-
-    let args = text.split(' ').collect::<Vec<&str>>();
-    if args.len() < 4 {
-        anyhow::bail!("No enough arguments")
+async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) -> Result<String> {
+    let mut cache = rt.currency_cache.lock().await;
+    if cache.verify_date().await {
+        let code = rt.req.get_currency_codes().await?;
+        cache.update_currency_codes(code).await;
     }
 
-    let amount = args[1]
-        .parse::<f64>()
-        .map_err(|e| anyhow::anyhow!("fail to parse {} into integer: {e}", args[1]))?;
-    let (from, to) = (args[2].to_lowercase(), args[3].to_lowercase());
-    let mut calculator = rt.currency.lock().await;
-    let (result, date) = calculator.calc(amount, &from, &to).await?;
+    let from_fullname = cache.get_fullname(&from).await;
+    if from_fullname.is_none() {
+        anyhow::bail!("invalid currency: {from}")
+    }
+
+    let to_fullname = cache.get_fullname(&to).await;
+    if to_fullname.is_none() {
+        anyhow::bail!("invalid currency: {to}")
+    }
+
+    // Early drop the MutexGuard to avoid the below request block the redis locker
+    drop(cache);
+
+    let rate_info = rt.req.get_currency_rate(&from, &to).await?;
 
     Ok(format!(
         r#"
@@ -153,21 +160,28 @@ async fn calculate_exchange(msg: Message, rt: RedisRT) -> Result<String> {
             Date: {}
                            "#,
         from.to_uppercase(),
-        calculator.get_fullname(&from).await.unwrap(),
+        from_fullname.unwrap(),
         to.to_uppercase(),
-        calculator.get_fullname(&to).await.unwrap(),
+        to_fullname.unwrap(),
         amount,
-        result,
-        date
+        rate_info.rate * amount,
+        rate_info.date
     ))
 }
 
-async fn exchange_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn exchange_handler(
+    msg: Message,
+    bot: AutoSend<Bot>,
+    rt: RedisRT,
+    amount: f64,
+    from: String,
+    to: String,
+) -> Result<()> {
     let chat_id = msg.chat.id;
 
     let callback = bot.send_message(chat_id, "Fetching API...").await?;
 
-    match calculate_exchange(msg, rt).await {
+    match calculate_exchange(rt, amount, from, to).await {
         Ok(reply) => bot.edit_message_text(chat_id, callback.id, reply).await?,
         Err(e) => {
             bot.edit_message_text(

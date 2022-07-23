@@ -10,7 +10,7 @@ where
     CS: currency::CurrenciesStorage,
     C: collect::Collector,
 {
-    pub currency: Arc<Mutex<currency::RateCalculator<CS>>>,
+    pub currency_cache: Arc<Mutex<CS>>,
     pub collector: Arc<Mutex<C>>,
     pub req: Arc<req::Client>,
 }
@@ -23,7 +23,7 @@ where
 {
     pub fn new(currency_cache: CS, collector: C) -> Self {
         Self {
-            currency: Arc::new(Mutex::new(currency::RateCalculator::new(currency_cache))),
+            currency_cache: Arc::new(Mutex::new(currency_cache)),
             collector: Arc::new(Mutex::new(collector)),
             req: Arc::new(req::Client::new()),
         }
