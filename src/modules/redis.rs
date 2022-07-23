@@ -1,5 +1,5 @@
 use crate::modules::collect::{Collector, MsgForm};
-use crate::modules::currency::CurrenciesStorage;
+use crate::modules::types::CurrenciesStorage;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
 

@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 
 /// Represent the konachan API response json
 #[derive(Deserialize, Debug)]
@@ -42,4 +43,11 @@ impl CurrencyV1PossibleResponse {
             _ => panic!("currency return non-string date"),
         }
     }
+}
+
+#[async_trait::async_trait]
+pub trait CurrenciesStorage: Send + Sync + Clone {
+    async fn verify_date(&mut self) -> bool;
+    async fn update_currency_codes(&mut self, codes: HashMap<String, String>);
+    async fn get_fullname(&mut self, code: &str) -> Option<String>;
 }

@@ -5,7 +5,7 @@ use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
-use super::currency::CurrenciesStorage;
+use crate::modules::types::CurrenciesStorage;
 
 #[derive(Clone)]
 pub enum DialogueStatus {
