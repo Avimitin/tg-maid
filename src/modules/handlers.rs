@@ -153,18 +153,18 @@ async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) 
 
     Ok(format!(
         r#"
-            {} ({}) --> {} ({})
+<b>{}</b> --> <b>{}</b>
 
-            {} ==> {}
+<b>{:.3}</b> {} = <b>{:.3}</b> {}
 
-            Date: {}
+Date: {}
                            "#,
-        from.to_uppercase(),
         from_fullname.unwrap(),
-        to.to_uppercase(),
         to_fullname.unwrap(),
         amount,
+        from.to_uppercase(),
         rate_info.rate * amount,
+        to.to_uppercase(),
         rate_info.date
     ))
 }
