@@ -26,7 +26,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
 
     let stateless_cmd_handler = teloxide::filter_command::<Command, _>()
-        .branch(dptree::case![Command::Exchange { amount, from, to }].endpoint(exchange_handler))
+        .branch(dptree::case![Command::Exchange(amount, from, to)].endpoint(exchange_handler))
         .branch(dptree::case![Command::Help].endpoint(help_handler))
         .branch(dptree::case![Command::Weather].endpoint(weather_handler))
         .branch(dptree::case![Command::Ghs].endpoint(ghs_handler))

@@ -10,11 +10,7 @@ pub enum Command {
         description = "Search exchange rate. Usage example: /exchange 1 usd cny",
         parse_with = "split"
     )]
-    Exchange {
-        amount: f64,
-        from: String,
-        to: String,
-    },
+    Exchange(f64, String, String),
 
     #[command(description = "Search weather. Usage example: /weather 上海")]
     Weather,
