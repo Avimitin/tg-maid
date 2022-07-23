@@ -1,4 +1,3 @@
-pub mod currency;
 pub mod collect;
 pub mod req;
 pub mod types;

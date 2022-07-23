@@ -173,16 +173,18 @@ async fn exchange_handler(
     msg: Message,
     bot: AutoSend<Bot>,
     rt: RedisRT,
-    amount: f64,
-    from: String,
-    to: String,
+    payload: (f64, String, String),
 ) -> Result<()> {
     let chat_id = msg.chat.id;
 
     let callback = bot.send_message(chat_id, "Fetching API...").await?;
 
-    match calculate_exchange(rt, amount, from, to).await {
-        Ok(reply) => bot.edit_message_text(chat_id, callback.id, reply).await?,
+    match calculate_exchange(rt, payload.0, payload.1, payload.2).await {
+        Ok(reply) => {
+            bot.edit_message_text(chat_id, callback.id, reply)
+                .parse_mode(teloxide::types::ParseMode::Html)
+                .await?
+        }
         Err(e) => {
             bot.edit_message_text(
                 chat_id,
