@@ -35,5 +35,7 @@ pub async fn run() {
 async fn main() {
     dotenv::dotenv().ok();
 
+    tracing_subscriber::fmt::init();
+
     run().await;
 }

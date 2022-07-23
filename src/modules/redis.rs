@@ -2,6 +2,7 @@ use crate::modules::collect::{Collector, MsgForm};
 use crate::modules::types::CurrenciesStorage;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
+use tracing::error;
 
 const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
 const CODE_PREFIX_KEY: &str = "currency-code";
@@ -13,15 +14,15 @@ impl CurrenciesStorage for ConnectionManager {
     async fn update_currency_codes(&mut self, codes: HashMap<String, String>) {
         for (k, v) in codes {
             let response: Result<(), _> = self.hset(CODE_PREFIX_KEY, k, v).await;
-            if let Err(_e) = response {
-                // TODO: report
+            if let Err(e) = response {
+                error!("fail to make hset request to redis: {e}")
             }
         }
 
         let date = chrono::Utc::now().format(DATE_FORMAT).to_string();
         let response: Result<(), _> = self.set("currency-last-update", date).await;
-        if let Err(_e) = response {
-            // TODO: report
+        if let Err(e) = response {
+            error!("fail to make hset request to redis: {e}")
         }
     }
 
@@ -44,7 +45,9 @@ impl CurrenciesStorage for ConnectionManager {
 #[async_trait::async_trait]
 impl Collector for ConnectionManager {
     async fn push(&mut self, uid: u64, pair: MsgForm) -> anyhow::Result<u32> {
-        let size: u32 = self.rpush(uid, format!("{}: {}", pair.sender, pair.text)).await?;
+        let size: u32 = self
+            .rpush(uid, format!("{}: {}", pair.sender, pair.text))
+            .await?;
         Ok(size)
     }
 

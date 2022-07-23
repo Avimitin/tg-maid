@@ -18,3 +18,5 @@ redis = { version = "0.21.5", features = ["tokio-comp", "connection-manager"] }
 async-trait = "0.1.56"
 rand = "0.8.5"
 lazy_static = "1.4.0"
+tracing = "0.1.35"
+tracing-subscriber = "0.3.15"
