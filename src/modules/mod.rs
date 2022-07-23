@@ -1,6 +1,8 @@
 pub mod currency;
 pub mod weather;
 pub mod collect;
+pub mod req;
+pub mod types;
 
 pub mod redis;
 

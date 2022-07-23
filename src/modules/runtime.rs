@@ -1,4 +1,4 @@
-use crate::modules::{collect, currency, weather};
+use crate::modules::{collect, currency, weather, req};
 use std::sync::Arc;
 // FIXME: This mutex locker is not suggested to be used
 // But vaultwarden used it in their projects.
@@ -14,6 +14,7 @@ where
     pub currency: Arc<Mutex<currency::RateCalculator<CS>>>,
     pub weather: Arc<WF>,
     pub collector: Arc<Mutex<C>>,
+    pub req: Arc<req::Client>
 }
 
 /// Default implementation use memory to store
@@ -28,6 +29,7 @@ where
             currency: Arc::new(Mutex::new(currency::RateCalculator::new(currency_cache))),
             collector: Arc::new(Mutex::new(collector)),
             weather: Arc::new(weather_cache),
+            req: Arc::new(req::Client::new()),
         }
     }
 }

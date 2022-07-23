@@ -2,6 +2,7 @@ use crate::modules::runtime::Runtime;
 use anyhow::Result;
 use redis::aio::ConnectionManager as redis_cm;
 use teloxide::dispatching::{dialogue, UpdateHandler};
+use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
 use crate::modules::weather;
@@ -28,6 +29,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(dptree::case![Command::Exchange].endpoint(exchange_handler))
         .branch(dptree::case![Command::Help].endpoint(help_handler))
         .branch(dptree::case![Command::Weather].endpoint(weather_handler))
+        .branch(dptree::case![Command::Ghs].endpoint(ghs_handler))
         .branch(dptree::case![Command::Collect].endpoint(collect_handler));
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -66,6 +68,24 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
     collector
         .push(who_want_these, MsgForm::new(msg_from, msg_text))
         .await?;
+    Ok(())
+}
+
+async fn ghs_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::UploadPhoto)
+        .await?;
+    let resp = rt.req.konachan_explicit_nsfw_image().await;
+
+    match resp {
+        Ok((image_link, image_info)) => {
+            bot.send_photo(msg.chat.id, teloxide::types::InputFile::url(image_link))
+                .parse_mode(teloxide::types::ParseMode::Html)
+                .caption(image_info)
+                .await?
+        }
+        Err(e) => bot.send_message(msg.chat.id, e.to_string()).await?,
+    };
+
     Ok(())
 }
 

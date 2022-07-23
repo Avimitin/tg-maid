@@ -14,7 +14,11 @@ async fn connect_redis(addr: &str) -> redis::aio::ConnectionManager {
 pub async fn run() {
     let bot = Bot::from_env().auto_send();
 
-    let redis_conn = connect_redis("").await;
+    let redis_conn = connect_redis(
+        &std::env::var("REDIS_ADDR")
+            .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`."),
+    )
+    .await;
     let handler = handlers::handler_schema();
     let status = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
     let runtime = runtime::Runtime::new(redis_conn.clone(), redis_conn, weather::WttrInApi::new());
