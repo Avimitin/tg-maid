@@ -7,7 +7,7 @@ use teloxide::prelude::*;
 use crate::modules::weather;
 
 #[derive(Clone)]
-enum DialogueStatus {
+pub enum DialogueStatus {
     None,
     CmdCollectRunning,
 }
