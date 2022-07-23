@@ -131,7 +131,7 @@ async fn exit_collect_handler(
 
 async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) -> Result<String> {
     let mut cache = rt.currency_cache.lock().await;
-    if cache.verify_date().await {
+    if !cache.verify_date().await {
         let code = rt.req.get_currency_codes().await?;
         cache.update_currency_codes(code).await;
     }
