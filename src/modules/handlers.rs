@@ -5,8 +5,6 @@ use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
-use crate::modules::weather;
-
 #[derive(Clone)]
 pub enum DialogueStatus {
     None,
@@ -20,7 +18,7 @@ impl std::default::Default for DialogueStatus {
 }
 
 type Dialogue = dialogue::Dialogue<DialogueStatus, dialogue::InMemStorage<DialogueStatus>>;
-type RedisRT = Runtime<redis_cm, redis_cm, weather::WttrInApi>;
+type RedisRT = Runtime<redis_cm, redis_cm>;
 
 pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
@@ -164,11 +162,7 @@ async fn calculate_exchange(msg: Message, rt: RedisRT) -> Result<String> {
     ))
 }
 
-async fn exchange_handler(
-    msg: Message,
-    bot: AutoSend<Bot>,
-    rt: Runtime<redis_cm, redis_cm, weather::WttrInApi>,
-) -> Result<()> {
+async fn exchange_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let chat_id = msg.chat.id;
 
     let callback = bot.send_message(chat_id, "Fetching API...").await?;
@@ -196,28 +190,18 @@ async fn help_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
     Ok(())
 }
 
-async fn get_weather(
-    msg: Message,
-    rt: Runtime<redis_cm, redis_cm, weather::WttrInApi>,
-) -> Result<String> {
-    use crate::modules::weather::WeatherFetcher;
-
+async fn get_weather(msg: Message, rt: RedisRT) -> Result<String> {
     let text = msg.text().unwrap();
     let parts = text.split(' ').collect::<Vec<&str>>();
     if parts.len() < 2 {
         anyhow::bail!("No enough argument. Usage example: /weather 上海")
     }
 
-    let text = rt.weather.query(parts[1]).await?;
-    let pic = rt.weather.pic(parts[1]);
+    let (text, pic) = rt.req.wttr_in_weather(parts[1]).await?;
     Ok(format!("<a href=\"{pic}\">{text}</a>"))
 }
 
-async fn weather_handler(
-    msg: Message,
-    bot: AutoSend<Bot>,
-    rt: Runtime<redis_cm, redis_cm, weather::WttrInApi>,
-) -> Result<()> {
+async fn weather_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let chat_id = msg.chat.id;
     bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing)
         .await?;

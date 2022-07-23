@@ -61,4 +61,14 @@ impl Client {
             ),
         ))
     }
+
+    pub async fn wttr_in_weather(&self, city: &str) -> anyhow::Result<(String, String)> {
+        const WTTR_IN_URL: &str = "https://wttr.in";
+        let url = reqwest::Url::parse_with_params(
+            &format!("{WTTR_IN_URL}/{city}"),
+            &[("format", "%l的天气:+%c+温度:%t+湿度:%h+降雨量:%p")],
+        )?;
+        let resp = self.c.get(url).send().await?.text().await?;
+        Ok((resp, format!("{WTTR_IN_URL}/{city}.png")))
+    }
 }
