@@ -33,6 +33,9 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
         .branch(dptree::case![Command::CollectDone].endpoint(exit_collect_handler));
 
+    // * is_message -> no-status -> stateless_cmd_handler
+    //              -> collect-status -> is-command -> stateful_cmd_handler
+    //                                -> collect_handler
     let msg_handler = Update::filter_message()
         .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stateful_cmd_handler))
