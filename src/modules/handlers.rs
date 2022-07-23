@@ -30,12 +30,12 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(dptree::case![Command::Weather].endpoint(weather_handler))
         .branch(dptree::case![Command::Collect].endpoint(collect_handler));
 
-    let stausful_cmd_handler = teloxide::filter_command::<Command, _>()
+    let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
         .branch(dptree::case![Command::CollectDone].endpoint(exit_collect_handler));
 
     let msg_handler = Update::filter_message()
         .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
-        .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stausful_cmd_handler))
+        .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stateful_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_message));
 
     let root = dptree::entry().branch(msg_handler);
