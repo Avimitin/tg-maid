@@ -7,6 +7,16 @@ use teloxide::prelude::*;
 
 use crate::modules::types::CurrenciesStorage;
 
+// Thanks to Asuna again! (GitHub @SpriteOvO)
+macro_rules! generate_commands {
+    ($($($cmd:ident)::+$(($($param:ident),+ $(,)?))* -> $endpoint:expr); +) => {
+        teloxide::filter_command::<Command, _>()
+        $(
+            .branch(dptree::case![$($cmd)::+$(($($param,)*))*].endpoint($endpoint))
+        )+
+    }
+}
+
 #[derive(Clone)]
 pub enum DialogueStatus {
     None,
@@ -25,13 +35,14 @@ type RedisRT = Runtime<redis_cm, redis_cm>;
 pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
 
-    let stateless_cmd_handler = teloxide::filter_command::<Command, _>()
-        .branch(dptree::case![Command::Exchange(amount, from, to)].endpoint(exchange_handler))
-        .branch(dptree::case![Command::Help].endpoint(help_handler))
-        .branch(dptree::case![Command::Weather].endpoint(weather_handler))
-        .branch(dptree::case![Command::Ghs].endpoint(ghs_handler))
-        .branch(dptree::case![Command::Mjx].endpoint(mjx_handler))
-        .branch(dptree::case![Command::Collect].endpoint(collect_handler));
+    let stateless_cmd_handler = generate_commands! {
+        Command::Exchange(amount, from, to) -> exchange_handler;
+        Command::Help                       -> help_handler;
+        Command::Weather                    -> weather_handler;
+        Command::Ghs                        -> ghs_handler;
+        Command::Mjx                        -> mjx_handler;
+        Command::Collect                    -> collect_handler
+    };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
         .branch(dptree::case![Command::CollectDone].endpoint(exit_collect_handler));
