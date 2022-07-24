@@ -155,4 +155,30 @@ impl Client {
             error_trace.join("\n\n")
         )
     }
+
+    pub async fn get_mjx(&self) -> anyhow::Result<reqwest::Url> {
+        let fallbacks_urls = [
+            "https://api.uomg.com/api/rand.img3?format=json",
+            "https://api.vvhan.com/api/tao?type=json",
+        ];
+
+        let mut trace = Vec::new();
+
+        for url in fallbacks_urls {
+            let url = reqwest::Url::parse(url).unwrap();
+
+            match self.to_t::<types::MjxApiPossibleReponse>(url).await {
+                Ok(res) => return Ok(reqwest::Url::parse(&res.unwrap_url())?),
+
+                Err(e) => {
+                    trace.push(e.to_string());
+                }
+            }
+        }
+
+        anyhow::bail!(
+            "fail to make request to all TaoBao API: {}",
+            trace.join("\n\n")
+        )
+    }
 }

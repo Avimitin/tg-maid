@@ -51,3 +51,22 @@ pub trait CurrenciesStorage: Send + Sync + Clone {
     async fn update_currency_codes(&mut self, codes: HashMap<String, String>);
     async fn get_fullname(&mut self, code: &str) -> Option<String>;
 }
+
+/// The response from MJX API is different. This type can match those different response.
+/// And its associate function can help extract the image link from response.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum MjxApiPossibleReponse {
+    Uomg { code: u8, imgurl: String },
+    Vvhan { title: String, pic: String },
+}
+
+impl MjxApiPossibleReponse {
+    /// Extract the image url from response
+    pub fn unwrap_url(self) -> String {
+        match self {
+            Self::Uomg { imgurl, .. } => imgurl,
+            Self::Vvhan { pic, .. } => pic,
+        }
+    }
+}

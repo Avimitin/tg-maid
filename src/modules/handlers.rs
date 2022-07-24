@@ -30,6 +30,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(dptree::case![Command::Help].endpoint(help_handler))
         .branch(dptree::case![Command::Weather].endpoint(weather_handler))
         .branch(dptree::case![Command::Ghs].endpoint(ghs_handler))
+        .branch(dptree::case![Command::Mjx].endpoint(mjx_handler))
         .branch(dptree::case![Command::Collect].endpoint(collect_handler));
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -47,6 +48,23 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::UploadPhoto)
+        .await?;
+
+    let resp = rt.req.get_mjx().await;
+
+    match resp {
+        Ok(s) => {
+            bot.send_photo(msg.chat.id, teloxide::types::InputFile::url(s))
+                .await?
+        }
+        Err(e) => bot.send_message(msg.chat.id, e.to_string()).await?,
+    };
+
+    Ok(())
 }
 
 async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
