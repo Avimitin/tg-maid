@@ -5,6 +5,7 @@ use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
+use crate::modules::scraper;
 use crate::modules::types::CurrenciesStorage;
 
 // Thanks to Asuna again! (GitHub @SpriteOvO)
@@ -41,7 +42,8 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Weather                    -> weather_handler;
         Command::Ghs                        -> ghs_handler;
         Command::Mjx                        -> mjx_handler;
-        Command::Collect                    -> collect_handler
+        Command::Collect                    -> collect_handler;
+        Command::CookPiggy                  -> cook_piggy_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -97,6 +99,34 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
     collector
         .push(who_want_these, MsgForm::new(msg_from, msg_text))
         .await?;
+    Ok(())
+}
+
+async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    let page = rt.req.get_piggy_recipe().await;
+    match page {
+        Err(e) => {
+            bot.send_message(msg.chat.id, format!("fail to cook piggy: {e}"))
+                .await?
+        }
+        Ok(p) => {
+            let text = tokio::task::block_in_place(move || {
+                let res = scraper::collect_recipe(&p);
+                match res {
+                    Ok(v) => {
+                        use rand::Rng;
+                        let mut rng = rand::thread_rng();
+                        let choice: usize = rng.gen_range(0..v.len());
+                        v[choice].to_string()
+                    }
+                    Err(e) => e.to_string(),
+                }
+            });
+
+            bot.send_message(msg.chat.id, text).await?
+        }
+    };
+
     Ok(())
 }
 

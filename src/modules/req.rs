@@ -53,6 +53,11 @@ impl Client {
         Ok(self.c.get(url).send().await?.json::<T>().await?)
     }
 
+    #[inline]
+    async fn fetch(&self, url: reqwest::Url) -> anyhow::Result<String> {
+        Ok(self.c.get(url).send().await?.text().await?)
+    }
+
     pub async fn konachan_explicit_nsfw_image(&self) -> anyhow::Result<(reqwest::Url, String)> {
         const LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
         let link = reqwest::Url::parse(LINK).unwrap();
@@ -180,5 +185,15 @@ impl Client {
             "fail to make request to all TaoBao API: {}",
             trace.join("\n\n")
         )
+    }
+
+    pub async fn get_piggy_recipe(&self) -> anyhow::Result<String> {
+        let page: u32 = rand::thread_rng().gen_range(0..600);
+        let url = reqwest::Url::parse(&format!(
+            "https://www.meishichina.com/YuanLiao/ZhuRou/{page}"
+        ))
+        .unwrap();
+
+        self.fetch(url).await
     }
 }
