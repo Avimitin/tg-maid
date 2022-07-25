@@ -2,6 +2,7 @@ pub mod collect;
 pub mod req;
 pub mod types;
 pub mod scraper;
+pub mod ksyx;
 
 pub mod redis;
 

@@ -1,4 +1,5 @@
 use crate::modules::collect::{Collector, MsgForm};
+use crate::modules::ksyx::KsyxCounter;
 use crate::modules::types::CurrenciesStorage;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
@@ -59,5 +60,12 @@ impl Collector for ConnectionManager {
                 .iter()
                 .fold(String::new(), |acc, x| format!("{}\n{}", acc, x)),
         )
+    }
+}
+
+#[async_trait::async_trait]
+impl KsyxCounter for ConnectionManager {
+    async fn add(&mut self) -> anyhow::Result<u32> {
+        Ok(self.incr("KSYX_HIT_COUNTER", 1).await?)
     }
 }

@@ -31,7 +31,7 @@ impl std::default::Default for DialogueStatus {
 }
 
 type Dialogue = dialogue::Dialogue<DialogueStatus, dialogue::InMemStorage<DialogueStatus>>;
-type RedisRT = Runtime<redis_cm, redis_cm>;
+type RedisRT = Runtime<redis_cm, redis_cm, redis_cm>;
 
 pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
@@ -43,7 +43,8 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Ghs                        -> ghs_handler;
         Command::Mjx                        -> mjx_handler;
         Command::Collect                    -> collect_handler;
-        Command::CookPiggy                  -> cook_piggy_handler
+        Command::CookPiggy                  -> cook_piggy_handler;
+        Command::HitKsyx                    -> ksyx_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -61,6 +62,35 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    let mut conn = rt.ksyx_hit_counter.lock().await;
+    use crate::modules::ksyx::KsyxCounter;
+    let old_v = conn.add().await;
+    if let Err(ref e) = old_v {
+        bot.send_message(msg.chat.id, format!("fail to interact with ksyx: {e}"))
+            .await?;
+        return Ok(());
+    }
+
+    let action = &[
+        "爱抚", "中出", "暴打", "后入", "膜", "贴贴", "狂踹", "寸止", "绳缚",
+    ];
+    use rand::Rng;
+    let choice = rand::thread_rng().gen_range(0..action.len());
+    bot.send_message(
+        msg.chat.id,
+        format!(
+            "{} {}了 ksyx，ksyx 已经被动手动脚了 {} 次",
+            msg.from().unwrap().first_name,
+            action[choice],
+            old_v.unwrap(),
+        ),
+    )
+    .await?;
+
+    Ok(())
 }
 
 async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
