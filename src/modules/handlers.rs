@@ -104,28 +104,32 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
 
 async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let page = rt.req.get_piggy_recipe().await;
-    match page {
-        Err(e) => {
-            bot.send_message(msg.chat.id, format!("fail to cook piggy: {e}"))
-                .await?
-        }
-        Ok(p) => {
-            let text = tokio::task::block_in_place(move || {
-                let res = scraper::collect_recipe(&p);
-                match res {
-                    Ok(v) => {
-                        use rand::Rng;
-                        let mut rng = rand::thread_rng();
-                        let choice: usize = rng.gen_range(0..v.len());
-                        v[choice].to_string()
-                    }
-                    Err(e) => e.to_string(),
-                }
-            });
+    if let Err(e) = page {
+        bot.send_message(msg.chat.id, format!("今天没法吃 piggy 了呜呜呜: {e}"))
+            .await?;
 
-            bot.send_message(msg.chat.id, text).await?
+        return Ok(());
+    }
+
+    let page = page.unwrap();
+
+    // Deserialize HTML page is a heavy task, however we don't have async way to do
+    // it. So what I can do is just not let the job block current thread.
+    let task = move || -> String {
+        let res = scraper::collect_recipe(&page);
+        match res {
+            Ok(v) => {
+                use rand::Rng;
+                let choice: usize = rand::thread_rng().gen_range(0..v.len());
+                format!("今天我们这样吃 piggy: {}", v[choice])
+            }
+            Err(e) => format!("今天没法吃 piggy 了呜呜呜: {e}"),
         }
     };
+
+    let text = tokio::task::block_in_place(task);
+
+    bot.send_message(msg.chat.id, text).await?;
 
     Ok(())
 }
