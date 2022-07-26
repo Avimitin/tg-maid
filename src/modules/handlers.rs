@@ -45,7 +45,8 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Collect                    -> collect_handler;
         Command::CookPiggy                  -> cook_piggy_handler;
         Command::HitKsyx                    -> ksyx_handler;
-        Command::Eh                         -> eh_handler
+        Command::Eh                         -> eh_handler;
+        Command::EhSeed                     -> eh_seed_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -94,7 +95,7 @@ async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<(
     Ok(())
 }
 
-async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[String; 2]>> {
     bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::UploadPhoto)
         .await?;
 
@@ -116,16 +117,17 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
         gid_list = parse_uid(args);
     } else {
         if msg.reply_to_message().is_none() {
-            bot.send_message(msg.chat.id, "Usage:\n /eh <links> OR /eh {reply}")
+            bot.send_message(msg.chat.id,
+                "You need to attach a ehentai link, or reply to a message that contains the ehentai link.")
                 .await?;
-            return Ok(());
+            anyhow::bail!("no link found")
         }
 
         let text = msg.reply_to_message().unwrap().text();
         if text.is_none() {
             bot.send_message(msg.chat.id, "You need to reply to a text message!")
                 .await?;
-            return Ok(());
+            anyhow::bail!("no link found")
         }
         gid_list = parse_uid(text.unwrap());
     }
@@ -133,9 +135,13 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
     if gid_list.is_empty() {
         bot.send_message(msg.chat.id, "No valid Ehentai or Exhentai link were found.")
             .await?;
-        return Ok(());
     }
 
+    Ok(gid_list)
+}
+
+async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    let gid_list = parse_eh_gidlist(&msg, &bot).await?;
     let response = rt.req.query_eh_api(&gid_list).await;
     match response {
         Ok(resp) => {
@@ -143,6 +149,7 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
                 bot.send_message(msg.chat.id, "invalid eh link").await?;
                 return Ok(());
             }
+            // TODO: support render multiple comic someday
             let metadata = &resp.gmetadata[0];
             bot.send_photo(
                 msg.chat.id,
@@ -156,6 +163,32 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
                 .await?;
         }
     };
+
+    Ok(())
+}
+
+async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    let gid_list = parse_eh_gidlist(&msg, &bot).await?;
+
+    let response = rt.req.query_eh_api(&gid_list).await;
+    match response {
+        Ok(resp) => {
+            if resp.gmetadata.is_empty() {
+                bot.send_message(msg.chat.id, "invalid eh link").await?;
+                return Ok(());
+            }
+
+            // TODO: support render multiple comic someday
+            let metadata = &resp.gmetadata[0];
+            // take 5 to avoid long message
+            bot.send_message(msg.chat.id, metadata.torrent_to_string(5))
+                .await?;
+        }
+        Err(error) => {
+            bot.send_message(msg.chat.id, format!("Query fail: {error}"))
+                .await?;
+        }
+    }
 
     Ok(())
 }

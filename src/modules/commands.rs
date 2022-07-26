@@ -24,6 +24,9 @@ pub enum Command {
     #[command(description = "查询 e-hentai 链接内的本子信息")]
     Eh,
 
+    #[command(description = "获取 e-hentai 链接内的种子链接")]
+    EhSeed,
+
     #[command(description = "收集所有内容并合并")]
     Collect,
 

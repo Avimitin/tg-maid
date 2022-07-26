@@ -72,7 +72,7 @@ impl MjxApiPossibleReponse {
 }
 
 /// Types for sending request to ehentai
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct EhentaiRequestType<'a> {
     method: String,
     namespace: u8,
@@ -100,6 +100,15 @@ where
     orig.parse::<u32>().map_err(D::Error::custom)
 }
 
+fn to_u64<'de, D>(d: D) -> Result<u64, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let orig: String = serde::de::Deserialize::deserialize(d)?;
+    use serde::de::Error;
+    orig.parse::<u64>().map_err(D::Error::custom)
+}
+
 fn to_f32<'de, D>(d: D) -> Result<f32, D::Error>
 where
     D: serde::de::Deserializer<'de>,
@@ -121,6 +130,7 @@ where
 /// Represent data for single comic query
 #[derive(Deserialize, Debug)]
 pub struct EhGmetadata {
+    gid: u32,
     title_jpn: String,
     category: String,
     #[serde(deserialize_with = "to_url")]
@@ -133,18 +143,33 @@ pub struct EhGmetadata {
     #[serde(deserialize_with = "to_u32")]
     torrentcount: u32,
     torrents: Vec<EhTorrent>,
-    first_gid: String,
+    first_gid: Option<String>,
 }
 
 impl EhGmetadata {
-    pub fn get_torrent_link(&self, choice: usize) -> anyhow::Result<String> {
-        if choice as u32 > self.torrentcount {
-            anyhow::bail!("invalid choice of torrents")
-        }
-        Ok(format!(
-            "https://ehtracker.org/get/{}/{}.torrent",
-            self.first_gid, self.torrents[choice].hash
-        ))
+    pub fn torrent_to_string(&self, max: usize) -> String {
+        let gid = if let Some(ref id) = self.first_gid {
+            id.to_string()
+        } else {
+            format!("{}", self.gid)
+        };
+
+        self.torrents
+            .iter()
+            .take(max)
+            .fold(String::new(), |sum, torrent| {
+                format!(
+                    r#"{sum}
+* Name: {}
+    Size: {} MB
+    Link: https://ehtracker.org/get/{}/{}.torrent
+"#,
+                    torrent.name,
+                    torrent.fsize / 1000000,
+                    gid,
+                    torrent.hash
+                )
+            })
     }
 }
 
@@ -166,7 +191,7 @@ impl std::fmt::Display for EhGmetadata {
             self.torrentcount,
             self.tags.iter().fold(String::new(), |acc, x| format!(
                 "{acc} #{}",
-                x.split(':').nth(1).unwrap().replace(' ', "_")
+                x.split(':').nth(1).unwrap().replace(' ', "_").replace('-', "_")
             ))
         )
     }
@@ -177,11 +202,33 @@ impl std::fmt::Display for EhGmetadata {
 struct EhTorrent {
     hash: String,
     name: String,
-    fsize: String,
+    #[serde(deserialize_with = "to_u64")]
+    fsize: u64,
 }
 
 /// The main response
 #[derive(Deserialize, Debug)]
 pub struct EhentaiMetadataResponse {
     pub gmetadata: Vec<EhGmetadata>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct EhentaiReponseError {
+    error: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum PossibleEhentaiResponse {
+    Norm(EhentaiMetadataResponse),
+    Err(EhentaiReponseError),
+}
+
+impl PossibleEhentaiResponse {
+    pub fn try_unwrap(self) -> anyhow::Result<EhentaiMetadataResponse> {
+        match self {
+            Self::Norm(res) => Ok(res),
+            Self::Err(e) => Err(anyhow::anyhow!("{}", e.error)),
+        }
+    }
 }

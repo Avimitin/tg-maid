@@ -206,13 +206,13 @@ impl Client {
 
         let request_data = types::EhentaiRequestType::new(gid_list);
 
-        Ok(self
-            .c
+        self.c
             .post(api_url)
             .json(&request_data)
             .send()
             .await?
-            .json::<types::EhentaiMetadataResponse>()
-            .await?)
+            .json::<types::PossibleEhentaiResponse>()
+            .await?
+            .try_unwrap()
     }
 }
