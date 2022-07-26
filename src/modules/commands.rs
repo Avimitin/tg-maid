@@ -21,8 +21,8 @@ pub enum Command {
     #[command(description = "随机二次元色图")]
     Ghs,
 
-    #[command(description = "查询 e-hentai 链接内的本子信息", parse_with = "split")]
-    Eh { url: String },
+    #[command(description = "查询 e-hentai 链接内的本子信息")]
+    Eh,
 
     #[command(description = "收集所有内容并合并")]
     Collect,

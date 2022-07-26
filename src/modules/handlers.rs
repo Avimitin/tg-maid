@@ -44,7 +44,8 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Mjx                        -> mjx_handler;
         Command::Collect                    -> collect_handler;
         Command::CookPiggy                  -> cook_piggy_handler;
-        Command::HitKsyx                    -> ksyx_handler
+        Command::HitKsyx                    -> ksyx_handler;
+        Command::Eh                         -> eh_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -89,6 +90,72 @@ async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<(
         ),
     )
     .await?;
+
+    Ok(())
+}
+
+async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::UploadPhoto)
+        .await?;
+
+    let text = msg.text().unwrap();
+    let args = text.split_once(' ');
+
+    let parse_uid = |args: &str| -> Vec<[String; 2]> {
+        let rules = regex::Regex::new(r#"e.hentai\.org/g/(\d+)/(\w+)"#).unwrap();
+        let mut ret = Vec::new();
+        for cap in rules.captures_iter(args) {
+            ret.push([cap[1].to_string(), cap[2].to_string()])
+        }
+        ret
+    };
+
+    let gid_list;
+    if let Some(args) = args {
+        let args = args.1;
+        gid_list = parse_uid(args);
+    } else {
+        if msg.reply_to_message().is_none() {
+            bot.send_message(msg.chat.id, "Usage:\n /eh <links> OR /eh {reply}")
+                .await?;
+            return Ok(());
+        }
+
+        let text = msg.reply_to_message().unwrap().text();
+        if text.is_none() {
+            bot.send_message(msg.chat.id, "You need to reply to a text message!")
+                .await?;
+            return Ok(());
+        }
+        gid_list = parse_uid(text.unwrap());
+    }
+
+    if gid_list.is_empty() {
+        bot.send_message(msg.chat.id, "No valid Ehentai or Exhentai link were found.")
+            .await?;
+        return Ok(());
+    }
+
+    let response = rt.req.query_eh_api(&gid_list).await;
+    match response {
+        Ok(resp) => {
+            if resp.gmetadata.is_empty() {
+                bot.send_message(msg.chat.id, "invalid eh link").await?;
+                return Ok(());
+            }
+            let metadata = &resp.gmetadata[0];
+            bot.send_photo(
+                msg.chat.id,
+                teloxide::types::InputFile::url(metadata.thumb.clone()),
+            )
+            .caption(format!("{metadata}"))
+            .await?;
+        }
+        Err(error) => {
+            bot.send_message(msg.chat.id, format!("Query fail: {error}"))
+                .await?;
+        }
+    };
 
     Ok(())
 }

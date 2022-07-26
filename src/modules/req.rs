@@ -196,4 +196,23 @@ impl Client {
 
         self.fetch(url).await
     }
+
+    pub async fn query_eh_api(
+        &self,
+        gid_list: &[[String; 2]],
+    ) -> anyhow::Result<types::EhentaiMetadataResponse> {
+        let api_url: reqwest::Url =
+            reqwest::Url::parse("https://api.e-hentai.org/api.php").unwrap();
+
+        let request_data = types::EhentaiRequestType::new(gid_list);
+
+        Ok(self
+            .c
+            .post(api_url)
+            .json(&request_data)
+            .send()
+            .await?
+            .json::<types::EhentaiMetadataResponse>()
+            .await?)
+    }
 }

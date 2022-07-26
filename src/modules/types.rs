@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Represent the konachan API response json
@@ -69,4 +69,119 @@ impl MjxApiPossibleReponse {
             Self::Vvhan { pic, .. } => pic,
         }
     }
+}
+
+/// Types for sending request to ehentai
+#[derive(Serialize)]
+pub struct EhentaiRequestType<'a> {
+    method: String,
+    namespace: u8,
+    gidlist: &'a [[String; 2]],
+}
+
+impl<'a> EhentaiRequestType<'a> {
+    /// Require gid_list to consturct the request.
+    /// Read https://ehwiki.org/wiki/API for details.
+    pub fn new(gidlist: &'a [[String; 2]]) -> Self {
+        Self {
+            gidlist,
+            method: "gdata".to_string(),
+            namespace: 1,
+        }
+    }
+}
+
+fn to_u32<'de, D>(d: D) -> Result<u32, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let orig: String = serde::de::Deserialize::deserialize(d)?;
+    use serde::de::Error;
+    orig.parse::<u32>().map_err(D::Error::custom)
+}
+
+fn to_f32<'de, D>(d: D) -> Result<f32, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let orig: String = serde::de::Deserialize::deserialize(d)?;
+    use serde::de::Error;
+    orig.parse::<f32>().map_err(D::Error::custom)
+}
+
+fn to_url<'de, D>(d: D) -> Result<reqwest::Url, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let orig: String = serde::de::Deserialize::deserialize(d)?;
+    use serde::de::Error;
+    reqwest::Url::parse(&orig).map_err(D::Error::custom)
+}
+
+/// Represent data for single comic query
+#[derive(Deserialize, Debug)]
+pub struct EhGmetadata {
+    title_jpn: String,
+    category: String,
+    #[serde(deserialize_with = "to_url")]
+    pub thumb: reqwest::Url,
+    #[serde(deserialize_with = "to_u32")]
+    filecount: u32,
+    #[serde(deserialize_with = "to_f32")]
+    rating: f32,
+    tags: Vec<String>,
+    #[serde(deserialize_with = "to_u32")]
+    torrentcount: u32,
+    torrents: Vec<EhTorrent>,
+    first_gid: String,
+}
+
+impl EhGmetadata {
+    pub fn get_torrent_link(&self, choice: usize) -> anyhow::Result<String> {
+        if choice as u32 > self.torrentcount {
+            anyhow::bail!("invalid choice of torrents")
+        }
+        Ok(format!(
+            "https://ehtracker.org/get/{}/{}.torrent",
+            self.first_gid, self.torrents[choice].hash
+        ))
+    }
+}
+
+impl std::fmt::Display for EhGmetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            r#"📖 Title: {}
+🗂️ Category: {}
+📄 Pages: {}
+⭐ Rating: {}
+🌱 Torrent Amount: {}
+🔖 Tags: {}
+"#,
+            self.title_jpn,
+            self.category,
+            self.filecount,
+            self.rating,
+            self.torrentcount,
+            self.tags.iter().fold(String::new(), |acc, x| format!(
+                "{acc} #{}",
+                x.split(':').nth(1).unwrap().replace(' ', "_")
+            ))
+        )
+    }
+}
+
+/// Represent the torrent data for one comic
+#[derive(Deserialize, Debug)]
+struct EhTorrent {
+    hash: String,
+    name: String,
+    fsize: String,
+}
+
+/// The main response
+#[derive(Deserialize, Debug)]
+pub struct EhentaiMetadataResponse {
+    pub gmetadata: Vec<EhGmetadata>,
 }
