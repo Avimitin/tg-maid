@@ -10,6 +10,10 @@ pub struct KonachanApiResponse {
     pub author: String,
 }
 
+
+// ----------------- currencies ----------------
+
+/// The actual rate information during the runtime
 #[derive(Debug)]
 pub struct CurrencyRateInfo {
     pub date: String,
@@ -22,6 +26,7 @@ impl CurrencyRateInfo {
     }
 }
 
+/// Possible value return from API
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum CurrencyV1PossibleResponse {
@@ -45,12 +50,17 @@ impl CurrencyV1PossibleResponse {
     }
 }
 
+/// An async trait that define the behavior of a cache for currencies.
 #[async_trait::async_trait]
 pub trait CurrenciesStorage: Send + Sync + Clone {
     async fn verify_date(&mut self) -> bool;
     async fn update_currency_codes(&mut self, codes: HashMap<String, String>);
     async fn get_fullname(&mut self, code: &str) -> Option<String>;
 }
+
+
+
+// ------------------------- MJX -------------------------------
 
 /// The response from MJX API is different. This type can match those different response.
 /// And its associate function can help extract the image link from response.
@@ -71,7 +81,11 @@ impl MjxApiPossibleReponse {
     }
 }
 
-/// Types for sending request to ehentai
+
+// -------------------------------- e-hentai --------------------------------
+
+/// Data for sending request to ehentai. The `method` field and `namespace`
+/// will be genrated automatically.
 #[derive(Serialize, Debug)]
 pub struct EhentaiRequestType<'a> {
     method: String,
@@ -113,6 +127,7 @@ macro_rules! gen_str_to_t {
 
 gen_str_to_t!(u32, u64, f32);
 
+/// Parse string to actual URL type
 fn to_url<'de, D>(d: D) -> Result<reqwest::Url, D::Error>
 where
     D: serde::de::Deserializer<'de>,
@@ -122,7 +137,7 @@ where
     reqwest::Url::parse(&orig).map_err(D::Error::custom)
 }
 
-/// Represent data for single comic query
+/// Represent data for single comic information
 #[derive(Deserialize, Debug)]
 pub struct EhGmetadata {
     gid: u32,
@@ -142,6 +157,10 @@ pub struct EhGmetadata {
 }
 
 impl EhGmetadata {
+    /// Parse the torrents list to Telegram message.
+    /// This function will render at most `max` torrent.
+    /// If the `max` argument is larger then torrents amount,
+    /// all the torrents information will be rendered.
     pub fn to_telegram_html(&self, max: usize) -> String {
         let gid = if let Some(ref id) = self.first_gid {
             id.to_string()
@@ -167,6 +186,7 @@ impl EhGmetadata {
     }
 }
 
+/// Custom format to display comit data.
 impl std::fmt::Display for EhGmetadata {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -195,7 +215,7 @@ impl std::fmt::Display for EhGmetadata {
     }
 }
 
-/// Represent the torrent data for one comic
+/// Represent a single torrent data
 #[derive(Deserialize, Debug)]
 struct EhTorrent {
     hash: String,
@@ -204,17 +224,21 @@ struct EhTorrent {
     fsize: u64,
 }
 
-/// The main response
+/// Response from ehentai when query succesfully. It contains a list of information
+/// for the given gid list.
 #[derive(Deserialize, Debug)]
 pub struct EhentaiMetadataResponse {
     pub gmetadata: Vec<EhGmetadata>,
 }
 
+/// Response from ehentai when query fail.
 #[derive(Deserialize, Debug)]
 pub struct EhentaiReponseError {
     error: String,
 }
 
+/// The main response from ehentai API. Use the `try_unwrap`
+/// function to convert the response to a Result type.
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum PossibleEhentaiResponse {
@@ -223,6 +247,7 @@ pub enum PossibleEhentaiResponse {
 }
 
 impl PossibleEhentaiResponse {
+    /// Convert the `PossibleEhentaiResponse` to `anyhow::Result` type.
     pub fn try_unwrap(self) -> anyhow::Result<EhentaiMetadataResponse> {
         match self {
             Self::Norm(res) => Ok(res),
