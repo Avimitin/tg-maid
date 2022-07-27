@@ -1,0 +1,23 @@
+version: 3
+networks:
+  butler-priv:
+    external: false
+
+service:
+  bot:
+    image: 'avimitin/butler'
+    restart: always
+    container_name: butler-bot
+    networks:
+      - butler-priv
+    environment:
+      # Change with your token here
+      - TELOXIDE_TOKEN="token"
+      # Don't update this if you don't know what you are doing
+      - REDIS_ADDR="redis://cache:6379"
+    depends_on:
+      - cache
+
+  cache:
+    image: 'redis:latest'
+    container_name: butler-cache
