@@ -372,7 +372,8 @@ async fn exchange_handler(
 
     let callback = bot.send_message(chat_id, "Fetching API...").await?;
 
-    match calculate_exchange(rt, payload.0, payload.1, payload.2).await {
+    let (amount, from, to) = payload;
+    match calculate_exchange(rt, amount, from.to_lowercase(), to.to_lowercase()).await {
         Ok(reply) => {
             bot.edit_message_text(chat_id, callback.id, reply)
                 .parse_mode(teloxide::types::ParseMode::Html)
