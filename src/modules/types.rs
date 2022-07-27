@@ -147,7 +147,7 @@ pub struct EhGmetadata {
 }
 
 impl EhGmetadata {
-    pub fn torrent_to_string(&self, max: usize) -> String {
+    pub fn to_telegram_html(&self, max: usize) -> String {
         let gid = if let Some(ref id) = self.first_gid {
             id.to_string()
         } else {
@@ -160,14 +160,13 @@ impl EhGmetadata {
             .fold(String::new(), |sum, torrent| {
                 format!(
                     r#"{sum}
-* Name: {}
-    Size: {} MB
-    Link: https://ehtracker.org/get/{}/{}.torrent
+* <b>Name</b>: <a href="https://ehtracker.org/get/{}/{}.torrent">{}</a>
+  <b>Size</b>: {} MB
 "#,
+                    gid,
+                    torrent.hash,
                     torrent.name,
                     torrent.fsize / 1000000,
-                    gid,
-                    torrent.hash
                 )
             })
     }
@@ -191,7 +190,11 @@ impl std::fmt::Display for EhGmetadata {
             self.torrentcount,
             self.tags.iter().fold(String::new(), |acc, x| format!(
                 "{acc} #{}",
-                x.split(':').nth(1).unwrap().replace(' ', "_").replace('-', "_")
+                x.split(':')
+                    .nth(1)
+                    .unwrap()
+                    .replace(' ', "_")
+                    .replace('-', "_")
             ))
         )
     }

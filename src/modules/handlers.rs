@@ -181,7 +181,8 @@ async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Resul
             // TODO: support render multiple comic someday
             let metadata = &resp.gmetadata[0];
             // take 5 to avoid long message
-            bot.send_message(msg.chat.id, metadata.torrent_to_string(5))
+            bot.send_message(msg.chat.id, metadata.to_telegram_html(5))
+                .parse_mode(teloxide::types::ParseMode::Html)
                 .await?;
         }
         Err(error) => {
