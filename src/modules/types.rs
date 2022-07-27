@@ -91,32 +91,27 @@ impl<'a> EhentaiRequestType<'a> {
     }
 }
 
-fn to_u32<'de, D>(d: D) -> Result<u32, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    let orig: String = serde::de::Deserialize::deserialize(d)?;
-    use serde::de::Error;
-    orig.parse::<u32>().map_err(D::Error::custom)
+/// Some of the API wrap all the type into string type.
+/// This macro rule generate some function that can parse those String
+/// response to their actual type.
+macro_rules! gen_str_to_t {
+    ($($ty:ty),+) => {
+        paste::paste! {
+            $(
+                fn [<to_$ty>]<'de, D>(d: D) -> Result<$ty, D::Error>
+                where
+                    D: serde::de::Deserializer<'de>,
+                {
+                    let orig: String = serde::de::Deserialize::deserialize(d)?;
+                    use serde::de::Error;
+                    orig.parse::<$ty>().map_err(D::Error::custom)
+                }
+            )+
+        }
+    };
 }
 
-fn to_u64<'de, D>(d: D) -> Result<u64, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    let orig: String = serde::de::Deserialize::deserialize(d)?;
-    use serde::de::Error;
-    orig.parse::<u64>().map_err(D::Error::custom)
-}
-
-fn to_f32<'de, D>(d: D) -> Result<f32, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    let orig: String = serde::de::Deserialize::deserialize(d)?;
-    use serde::de::Error;
-    orig.parse::<f32>().map_err(D::Error::custom)
-}
+gen_str_to_t!(u32, u64, f32);
 
 fn to_url<'de, D>(d: D) -> Result<reqwest::Url, D::Error>
 where
