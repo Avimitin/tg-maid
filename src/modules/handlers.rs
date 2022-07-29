@@ -46,7 +46,8 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::CookPiggy                  -> cook_piggy_handler;
         Command::HitKsyx                    -> ksyx_handler;
         Command::Eh                         -> eh_handler;
-        Command::EhSeed                     -> eh_seed_handler
+        Command::EhSeed                     -> eh_seed_handler;
+        Command::Pacman                     -> pacman_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -64,6 +65,48 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    let mut text = msg.text().unwrap().split(' ');
+    // shift one
+    text.next();
+
+    let operation = text.next();
+    if operation.is_none() {
+        bot.send_message(msg.chat.id, "No operation given, abort!")
+            .await?;
+        return Ok(());
+    }
+    let operation = operation.unwrap();
+
+    let pkg = text.next();
+    if pkg.is_none() {
+        bot.send_message(msg.chat.id, "No package name! Abort")
+            .await?;
+        return Ok(());
+    }
+
+    match operation {
+        "-S" => {
+            let resp = rt.req.exact_match(pkg.unwrap()).await;
+            match resp {
+                Ok(s) => bot.send_message(msg.chat.id, format!("{s}")).await?,
+                Err(e) => bot.send_message(msg.chat.id, format!("{e}")).await?,
+            }
+        }
+        _ => {
+            bot.send_message(
+                msg.chat.id,
+                format!("Unsupported operation `{operation}`! Abort"),
+            )
+            .await?
+        }
+    };
+
+    bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::Typing)
+        .await?;
+    Ok(())
 }
 
 async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {

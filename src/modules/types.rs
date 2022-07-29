@@ -10,7 +10,6 @@ pub struct KonachanApiResponse {
     pub author: String,
 }
 
-
 // ----------------- currencies ----------------
 
 /// The actual rate information during the runtime
@@ -58,8 +57,6 @@ pub trait CurrenciesStorage: Send + Sync + Clone {
     async fn get_fullname(&mut self, code: &str) -> Option<String>;
 }
 
-
-
 // ------------------------- MJX -------------------------------
 
 /// The response from MJX API is different. This type can match those different response.
@@ -80,7 +77,6 @@ impl MjxApiPossibleReponse {
         }
     }
 }
-
 
 // -------------------------------- e-hentai --------------------------------
 

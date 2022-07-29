@@ -49,12 +49,12 @@ impl Client {
     ///     * Response is not JSON
     ///     * Fail to parse response into given type
     #[inline]
-    async fn to_t<T: serde::de::DeserializeOwned>(&self, url: reqwest::Url) -> anyhow::Result<T> {
+    pub(crate) async fn to_t<T: serde::de::DeserializeOwned>(&self, url: reqwest::Url) -> anyhow::Result<T> {
         Ok(self.c.get(url).send().await?.json::<T>().await?)
     }
 
     #[inline]
-    async fn fetch(&self, url: reqwest::Url) -> anyhow::Result<String> {
+    pub(crate) async fn fetch(&self, url: reqwest::Url) -> anyhow::Result<String> {
         Ok(self.c.get(url).send().await?.text().await?)
     }
 
