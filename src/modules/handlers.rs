@@ -18,7 +18,14 @@ macro_rules! generate_commands {
     }
 }
 
-// Bot action wrapper
+/// A AutoSend<Bot> method wrapper. It can help reduce the code base.
+///
+/// Rules:
+///    * send(Message, AutoSend<Bot>, &'static str): Send text message
+///    * send(Message, AutoSend<Bot>, &'static str, html): Send text message in Html format
+///    * send(Message, AutoSend<Bot>, {{ expression }}): Send text message, text generate from
+///    expression
+///    * send(@<Action>, Message, AutoSend<Bot>): Send chat action
 macro_rules! send {
     ($msg:ident, $bot:ident, $text:literal) => {
         $bot.send_message($msg.chat.id, $text).await?
