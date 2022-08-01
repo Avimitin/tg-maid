@@ -18,6 +18,27 @@ macro_rules! generate_commands {
     }
 }
 
+// Bot action wrapper
+macro_rules! send {
+    ($msg:ident, $bot:ident, $text:literal) => {
+        $bot.send_message($msg.chat.id, $text).await?
+    };
+
+    ($msg:ident, $bot:ident, $text:literal, html) => {
+        $bot.send_message($msg.chat.id, $text)
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await?
+    };
+
+    ($msg:ident, $bot:ident, $text:expr) => {
+        $bot.send_message($msg.chat.id, $text).await?
+    };
+
+    (@$action:ident; $msg:ident, $bot:ident) => {
+        $bot.send_chat_action($msg.chat.id, teloxide::types::ChatAction::$action).await?
+    }
+}
+
 #[derive(Clone)]
 pub enum DialogueStatus {
     None,
@@ -74,16 +95,14 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
 
     let operation = text.next();
     if operation.is_none() {
-        bot.send_message(msg.chat.id, "No operation given, abort!")
-            .await?;
+        send!(msg, bot, "No operation was given, abort!");
         return Ok(());
     }
     let operation = operation.unwrap();
 
     let pkg = text.next();
     if pkg.is_none() {
-        bot.send_message(msg.chat.id, "No package name! Abort")
-            .await?;
+        send!(msg, bot, "No package name! Abort");
         return Ok(());
     }
 
@@ -91,21 +110,20 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
         "-S" => {
             let resp = rt.req.exact_match(pkg.unwrap()).await;
             match resp {
-                Ok(s) => bot.send_message(msg.chat.id, format!("{s}")).await?,
-                Err(e) => bot.send_message(msg.chat.id, format!("{e}")).await?,
+                Ok(s) => send!(msg, bot, format!("{s}")),
+                Err(e) => send!(msg, bot, format!("{e}")),
             }
         }
         _ => {
-            bot.send_message(
-                msg.chat.id,
-                format!("Unsupported operation `{operation}`! Abort"),
+            send!(
+                msg,
+                bot,
+                format!("Unsupported operation `{operation}`! Abort")
             )
-            .await?
         }
     };
 
-    bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::Typing)
-        .await?;
+    send!(@Typing; msg, bot);
     Ok(())
 }
 
