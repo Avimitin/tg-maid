@@ -41,9 +41,16 @@ macro_rules! send {
         $bot.send_message($msg.chat.id, $text).await?
     };
 
+    ($msg:ident, $bot:ident, $text:expr, html) => {
+        $bot.send_message($msg.chat.id, $text)
+            .parse_mode(teloxide::types::ParseMode::Html)
+            .await?
+    };
+
     (@$action:ident; $msg:ident, $bot:ident) => {
-        $bot.send_chat_action($msg.chat.id, teloxide::types::ChatAction::$action).await?
-    }
+        $bot.send_chat_action($msg.chat.id, teloxide::types::ChatAction::$action)
+            .await?
+    };
 }
 
 #[derive(Clone)]
@@ -113,11 +120,28 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
         return Ok(());
     }
 
+    send!(@Typing; msg, bot);
+
     match operation {
-        "-S" => {
-            let resp = rt.req.exact_match(pkg.unwrap()).await;
+        "-Si" => {
+            let resp = rt.req.get_archpkg_info(pkg.unwrap()).await;
             match resp {
                 Ok(s) => send!(msg, bot, format!("{s}")),
+                Err(e) => send!(msg, bot, format!("{e}")),
+            }
+        }
+        "-Ss" => {
+            let resp = rt.req.search_archpkg(pkg.unwrap(), 8).await;
+            match resp {
+                Ok((Some(exact), list)) => {
+                    send!(
+                        msg,
+                        bot,
+                        format!("Found exact match: \n{}\n\n---\nResults:\n{}", exact, list.join("\n")),
+                        html
+                    )
+                }
+                Ok((None, list)) => send!(msg, bot, list.join("\n")),
                 Err(e) => send!(msg, bot, format!("{e}")),
             }
         }
@@ -125,12 +149,11 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
             send!(
                 msg,
                 bot,
-                format!("Unsupported operation `{operation}`! Abort")
+                format!("This is a query bot, it doesn't support `{operation}` operation! Abort")
             )
         }
     };
 
-    send!(@Typing; msg, bot);
     Ok(())
 }
 

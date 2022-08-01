@@ -56,7 +56,7 @@ use crate::modules::req;
 const SEARCH_BASE_URL: &str = "https://www.archlinux.org/packages/search/json";
 
 impl req::Client {
-    pub async fn exact_match(&self, pkg: &str) -> anyhow::Result<PackageInfo> {
+    pub async fn get_archpkg_info(&self, pkg: &str) -> anyhow::Result<PackageInfo> {
         let url = reqwest::Url::parse_with_params(SEARCH_BASE_URL, &[("name", pkg)])
             .with_context(|| format!("{pkg} is a invalid params"))?;
 
@@ -70,13 +70,50 @@ impl req::Client {
             .next()
             .ok_or_else(|| anyhow::anyhow!("no result found for {pkg}"))
     }
+
+    pub async fn search_archpkg(
+        &self,
+        pkg: &str,
+        max: usize,
+    ) -> anyhow::Result<(Option<String>, Vec<String>)> {
+        let exact_url = reqwest::Url::parse_with_params(SEARCH_BASE_URL, &[("name", pkg)])
+            .with_context(|| format!("{pkg} is a invalid params"))?;
+        let regex_url = reqwest::Url::parse_with_params(SEARCH_BASE_URL, &[("q", pkg)])
+            .with_context(|| format!("{pkg} is a invalid params"))?;
+
+        let (exact, regex) = tokio::join!(
+            self.to_t::<SearchResponse>(exact_url),
+            self.to_t::<SearchResponse>(regex_url),
+        );
+
+        let (exact, regex) = (exact?, regex?);
+
+        if !exact.valid || !regex.valid {
+            anyhow::bail!("invalid request!")
+        }
+
+        let results = regex
+            .results
+            .into_iter()
+            .take(max)
+            .map(|pkg| format!("<b>{}/{}</b>\n    {}", pkg.repo, pkg.pkgname, pkg.pkgdesc))
+            .collect();
+
+        if exact.results.is_empty() {
+            Ok((None, results))
+        } else {
+            let exact = &exact.results[0];
+            let exact = format!("{}/{}\n\t{}", exact.repo, exact.pkgname, exact.pkgdesc);
+            Ok((Some(exact), results))
+        }
+    }
 }
 
 #[tokio::test]
 async fn test_exact_match() {
     let client = req::Client::new();
     let info = client
-        .exact_match("neovim")
+        .get_archpkg_info("neovim")
         .await
         .expect("request should success");
     println!("{}", info);
