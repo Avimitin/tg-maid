@@ -145,6 +145,13 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
                 Err(e) => send!(msg, bot, format!("{e}")),
             }
         }
+        "-Syu" => {
+            if rand::random() {
+                send!(msg, bot, "Wow, you are lucky! The full system was upgraded successfully!")
+            } else {
+                send!(msg, bot, "Oops, your system is broken during the upgrade!")
+            }
+        }
         _ => {
             send!(
                 msg,
