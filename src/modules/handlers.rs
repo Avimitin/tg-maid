@@ -164,8 +164,7 @@ async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<(
 }
 
 async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[String; 2]>> {
-    bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::UploadPhoto)
-        .await?;
+    send!(@UploadPhoto; msg, bot);
 
     let text = msg.text().unwrap();
     let args = text.split_once(' ');
