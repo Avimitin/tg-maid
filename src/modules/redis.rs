@@ -1,6 +1,6 @@
-use crate::modules::collect::{Collector, MsgForm};
-use crate::modules::ksyx::KsyxCounter;
-use crate::modules::types::CurrenciesStorage;
+use crate::modules::collect::{CollectedMsgCache, MsgForm};
+use crate::modules::ksyx::KsyxCounterCache;
+use crate::modules::types::CurrenciesCache;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
 use tracing::error;
@@ -11,7 +11,7 @@ const DATE_KEY: &str = "currency-last-update";
 
 // FIXME: reimplement trait for redis client
 #[async_trait::async_trait]
-impl CurrenciesStorage for ConnectionManager {
+impl CurrenciesCache for ConnectionManager {
     async fn update_currency_codes(&mut self, codes: HashMap<String, String>) {
         for (k, v) in codes {
             let response: Result<(), _> = self.hset(CODE_PREFIX_KEY, k, v).await;
@@ -44,7 +44,7 @@ impl CurrenciesStorage for ConnectionManager {
 }
 
 #[async_trait::async_trait]
-impl Collector for ConnectionManager {
+impl CollectedMsgCache for ConnectionManager {
     async fn push(&mut self, uid: u64, pair: MsgForm) -> anyhow::Result<u32> {
         let size: u32 = self
             .rpush(uid, format!("{}: {}", pair.sender, pair.text))
@@ -64,8 +64,8 @@ impl Collector for ConnectionManager {
 }
 
 #[async_trait::async_trait]
-impl KsyxCounter for ConnectionManager {
-    async fn add(&mut self) -> anyhow::Result<u32> {
+impl KsyxCounterCache for ConnectionManager {
+    async fn hit(&mut self) -> anyhow::Result<u32> {
         Ok(self.incr("KSYX_HIT_COUNTER", 1).await?)
     }
 }

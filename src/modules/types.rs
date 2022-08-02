@@ -51,7 +51,7 @@ impl CurrencyV1PossibleResponse {
 
 /// An async trait that define the behavior of a cache for currencies.
 #[async_trait::async_trait]
-pub trait CurrenciesStorage: Send + Sync + Clone {
+pub trait CurrenciesCache: Send + Sync + Clone {
     async fn verify_date(&mut self) -> bool;
     async fn update_currency_codes(&mut self, codes: HashMap<String, String>);
     async fn get_fullname(&mut self, code: &str) -> Option<String>;

@@ -6,7 +6,7 @@ use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
 use crate::modules::scraper;
-use crate::modules::types::CurrenciesStorage;
+use crate::modules::types::CurrenciesCache;
 
 // Thanks to Asuna again! (GitHub @SpriteOvO)
 macro_rules! generate_commands {
@@ -166,8 +166,8 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
 
 async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let mut conn = rt.cache.lock().await;
-    use crate::modules::ksyx::KsyxCounter;
-    let old_v = conn.add().await;
+    use crate::modules::ksyx::KsyxCounterCache;
+    let old_v = conn.hit().await;
     if let Err(ref e) = old_v {
         bot.send_message(msg.chat.id, format!("fail to interact with ksyx: {e}"))
             .await?;
@@ -323,7 +323,7 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
         .to_string();
     let msg_text = msg.text().unwrap_or("Null").to_string();
 
-    use crate::modules::collect::{Collector, MsgForm};
+    use crate::modules::collect::{CollectedMsgCache, MsgForm};
     collector
         .push(who_want_these, MsgForm::new(msg_from, msg_text))
         .await?;
@@ -403,7 +403,7 @@ async fn exit_collect_handler(
     dialogue.exit().await?;
 
     let mut collector = rt.cache.lock().await;
-    use super::collect::Collector;
+    use super::collect::CollectedMsgCache;
 
     // FIXME: Can I guarantee that command must came from a user?
     let result = collector

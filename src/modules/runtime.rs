@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 #[derive(Clone, Debug)]
 pub(crate) struct Runtime<RC>
 where
-    RC: types::CurrenciesStorage + collect::Collector + ksyx::KsyxCounter,
+    RC: types::CurrenciesCache + collect::CollectedMsgCache + ksyx::KsyxCounterCache,
 {
     pub cache: Arc<Mutex<RC>>,
     pub req: Arc<req::Client>,
@@ -16,7 +16,7 @@ where
 /// Default implementation use memory to store
 impl<RC> Runtime<RC>
 where
-    RC: types::CurrenciesStorage + collect::Collector + ksyx::KsyxCounter,
+    RC: types::CurrenciesCache + collect::CollectedMsgCache + ksyx::KsyxCounterCache,
 {
     pub fn new(cache: RC) -> Self {
         Self {
