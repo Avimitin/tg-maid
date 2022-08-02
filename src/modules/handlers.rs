@@ -66,7 +66,7 @@ impl std::default::Default for DialogueStatus {
 }
 
 type Dialogue = dialogue::Dialogue<DialogueStatus, dialogue::InMemStorage<DialogueStatus>>;
-type RedisRT = Runtime<redis_cm, redis_cm, redis_cm>;
+type RedisRT = Runtime<redis_cm>;
 
 pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use crate::modules::commands::Command;
@@ -165,7 +165,7 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
 }
 
 async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    let mut conn = rt.ksyx_hit_counter.lock().await;
+    let mut conn = rt.cache.lock().await;
     use crate::modules::ksyx::KsyxCounter;
     let old_v = conn.add().await;
     if let Err(ref e) = old_v {
@@ -309,7 +309,7 @@ async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()
 }
 
 async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
-    let mut collector = rt.collector.lock().await;
+    let mut collector = rt.cache.lock().await;
     let who_want_these = msg
         .from()
         .expect("Unexpectedly add non-user into dialogue")
@@ -402,7 +402,7 @@ async fn exit_collect_handler(
         .id;
     dialogue.exit().await?;
 
-    let mut collector = rt.collector.lock().await;
+    let mut collector = rt.cache.lock().await;
     use super::collect::Collector;
 
     // FIXME: Can I guarantee that command must came from a user?
@@ -421,7 +421,7 @@ async fn exit_collect_handler(
 }
 
 async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) -> Result<String> {
-    let mut cache = rt.currency_cache.lock().await;
+    let mut cache = rt.cache.lock().await;
     if !cache.verify_date().await {
         let code = rt.req.get_currency_codes().await?;
         cache.update_currency_codes(code).await;

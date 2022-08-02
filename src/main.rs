@@ -21,7 +21,7 @@ pub async fn run() {
     .await;
     let handler = handlers::handler_schema();
     let status = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
-    let runtime = runtime::Runtime::new(redis_conn.clone(), redis_conn.clone(), redis_conn);
+    let runtime = runtime::Runtime::new(redis_conn);
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
