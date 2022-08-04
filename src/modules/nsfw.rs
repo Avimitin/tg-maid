@@ -4,6 +4,15 @@ use rand::Rng;
 use serde::Deserialize;
 use crate::butler::Fetcher;
 
+/// Represent the konachan API response json
+#[derive(Deserialize, Debug)]
+pub struct KonachanApiResponse {
+    pub jpeg_url: String,
+    pub file_url: String,
+    pub file_size: u32,
+    pub author: String,
+}
+
 /// NsfwContentFetcher require two type of output. One should return
 /// Anime Waifu uwu, another one should return porn photograph.
 #[async_trait]
@@ -45,7 +54,6 @@ impl NsfwContentFetcher for Fetcher {
         const LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
         let link = reqwest::Url::parse(LINK).unwrap();
 
-        use crate::modules::types::KonachanApiResponse;
         let response = self
             .to_t::<Vec<KonachanApiResponse>>(link)
             .await
