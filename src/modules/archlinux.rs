@@ -43,20 +43,26 @@ Last Update: {}
     }
 }
 
+/// Types that implement ArchLinuxPacman trait should have two method:
+/// `pacman -Si` and `pacman -Ss`.
 #[async_trait::async_trait]
 pub trait ArchLinuxPacman {
-    async fn exact_match(&self, pkg: &str) -> anyhow::Result<()>;
-    async fn fuzzy_match(&self, pkg: &str);
+    /// Customize search output type
+    type SearchOutput;
+    /// Act like `pacman -Ss`, and with `max` limit the output items
+    async fn search_pkg(&self, pkg: &str, max: usize) -> Self::SearchOutput;
+    /// Act like `pacman -Si`
+    async fn get_pkg_info(&self, pkg: &str) -> anyhow::Result<PackageInfo>;
 }
 
+use crate::butler::Fetcher;
 use anyhow::Context;
-
-use crate::modules::req;
 
 const SEARCH_BASE_URL: &str = "https://www.archlinux.org/packages/search/json";
 
-impl req::Client {
-    pub async fn get_archpkg_info(&self, pkg: &str) -> anyhow::Result<PackageInfo> {
+#[async_trait::async_trait]
+impl ArchLinuxPacman for Fetcher {
+    async fn get_pkg_info(&self, pkg: &str) -> anyhow::Result<PackageInfo> {
         let url = reqwest::Url::parse_with_params(SEARCH_BASE_URL, &[("name", pkg)])
             .with_context(|| format!("{pkg} is a invalid params"))?;
 
@@ -71,7 +77,9 @@ impl req::Client {
             .ok_or_else(|| anyhow::anyhow!("no result found for {pkg}"))
     }
 
-    pub async fn search_archpkg(
+    type SearchOutput = anyhow::Result<(Option<String>, Vec<String>)>;
+
+    async fn search_pkg(
         &self,
         pkg: &str,
         max: usize,
@@ -107,14 +115,4 @@ impl req::Client {
             Ok((Some(exact), results))
         }
     }
-}
-
-#[tokio::test]
-async fn test_exact_match() {
-    let client = req::Client::new();
-    let info = client
-        .get_archpkg_info("neovim")
-        .await
-        .expect("request should success");
-    println!("{}", info);
 }
