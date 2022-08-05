@@ -1,6 +1,7 @@
+mod butler;
+mod cache;
 mod modules;
 
-use crate::modules::{handlers, runtime};
 use teloxide::{dispatching::dialogue, prelude::*};
 
 async fn connect_redis(addr: &str) -> redis::aio::ConnectionManager {
@@ -19,9 +20,10 @@ pub async fn run() {
             .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`."),
     )
     .await;
-    let handler = handlers::handler_schema();
-    let status = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
-    let runtime = runtime::Runtime::new(redis_conn);
+    let handler = butler::handler_schema();
+    let status = dialogue::InMemStorage::<butler::DialogueStatus>::new();
+    let fetcher = butler::Fetcher::new();
+    let runtime = butler::Runtime::new(redis_conn, fetcher);
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
