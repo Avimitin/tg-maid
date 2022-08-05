@@ -1,8 +1,8 @@
-use async_trait::async_trait;
+use crate::butler::Fetcher;
 use anyhow::Context;
+use async_trait::async_trait;
 use rand::Rng;
 use serde::Deserialize;
-use crate::butler::Fetcher;
 
 /// Represent the konachan API response json
 #[derive(Deserialize, Debug)]
@@ -102,4 +102,3 @@ impl NsfwProvider for Fetcher {
         )
     }
 }
-

@@ -5,10 +5,7 @@ pub struct MsgForm {
 
 impl MsgForm {
     pub fn new(sender: String, text: String) -> Self {
-        Self {
-            sender,
-            text,
-        }
+        Self { sender, text }
     }
 }
 
