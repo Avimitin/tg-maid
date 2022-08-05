@@ -12,7 +12,7 @@ async fn connect_redis(addr: &str) -> redis::aio::ConnectionManager {
         .expect("fail to connect to redis")
 }
 
-pub async fn run() {
+async fn run() {
     let bot = Bot::from_env().auto_send();
 
     let redis_addr = std::env::var("REDIS_ADDR")
