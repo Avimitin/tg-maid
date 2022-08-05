@@ -1,6 +1,7 @@
 // ----------------- Types ----------------
 use std::collections::HashMap; 
 use serde::Deserialize;
+use anyhow::Context;
 
 /// The actual rate information during the runtime
 #[derive(Debug)]
