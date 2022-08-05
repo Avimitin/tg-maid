@@ -5,7 +5,6 @@ mod ehentai;
 mod ksyx;
 mod nsfw;
 mod piggy;
-mod scraper;
 mod weather;
 
 pub mod request {
