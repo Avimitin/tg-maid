@@ -15,11 +15,9 @@ async fn connect_redis(addr: &str) -> redis::aio::ConnectionManager {
 pub async fn run() {
     let bot = Bot::from_env().auto_send();
 
-    let redis_conn = connect_redis(
-        &std::env::var("REDIS_ADDR")
-            .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`."),
-    )
-    .await;
+    let redis_addr = std::env::var("REDIS_ADDR")
+        .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`.");
+    let redis_conn = connect_redis(&redis_addr).await;
     let handler = butler::handler_schema();
     let status = dialogue::InMemStorage::<butler::DialogueStatus>::new();
     let fetcher = butler::Fetcher::new();
