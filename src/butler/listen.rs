@@ -4,7 +4,7 @@ use warp::Filter;
 pub fn spawn_healthcheck_listner(port: u16) {
     // FIXME: This is an orphan task!
     tokio::task::spawn(async move {
-        let heartbeat = warp::path("/healthcheck").map(|| "bong bong");
+        let heartbeat = warp::path("healthcheck").map(|| "bong bong");
         warp::serve(heartbeat).run(([127, 0, 0, 1], port)).await;
     });
 }
