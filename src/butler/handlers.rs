@@ -1,14 +1,26 @@
 use super::runtime::Runtime;
 use crate::modules;
 use anyhow::Result;
-use redis::aio::ConnectionManager as redis_cm;
 use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
 use crate::butler::Fetcher;
 
-// Thanks to Asuna again! (GitHub @SpriteOvO)
+/// Generate relation from command literal to their corresponding endpoint.
+///
+/// # Form
+///
+/// ```
+/// generate_commands!{
+///     Command::Help  -> help_handler
+/// }
+/// ```
+///
+/// # Credit
+///
+/// Thanks to Asuna again! (GitHub @SpriteOvO)
+///
 macro_rules! generate_commands {
     ($($($cmd:ident)::+$(($($param:ident),+ $(,)?))* -> $endpoint:expr); +) => {
         teloxide::filter_command::<Command, _>()
@@ -53,9 +65,12 @@ macro_rules! send {
     };
 }
 
+/// Represent the bot status for the current requesting user.
 #[derive(Clone)]
 pub enum DialogueStatus {
+    /// Normal status
     None,
+    /// All the message from current user should be collected
     CmdCollectRunning,
 }
 
@@ -66,8 +81,18 @@ impl std::default::Default for DialogueStatus {
 }
 
 type Dialogue = dialogue::Dialogue<DialogueStatus, dialogue::InMemStorage<DialogueStatus>>;
-type RedisRT = Runtime<redis_cm, Fetcher>;
 
+/// Runtime built with redis connection and reqwest::Client
+type RedisRT = Runtime<redis::aio::ConnectionManager, Fetcher>;
+
+/// Build the bot update handler schema.
+///
+/// # Logic
+///
+// * <is message?> -> <no status?> -> [stateless_cmd_handler]
+//                   -> <is command?> -> [stateful cmd handler]
+//                      -> [collect handler]
+//
 pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     use super::Command;
 
@@ -88,9 +113,6 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
         .branch(dptree::case![Command::CollectDone].endpoint(exit_collect_handler));
 
-    // * is_message -> no-status -> stateless_cmd_handler
-    //              -> collect-status -> is-command -> stateful_cmd_handler
-    //                                -> collect_handler
     let msg_handler = Update::filter_message()
         .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stateful_cmd_handler))
@@ -102,6 +124,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(root)
 }
 
+/// handler for /pacman command
 async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let mut text = msg.text().unwrap().split(' ');
     // shift one
@@ -174,6 +197,7 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
     Ok(())
 }
 
+/// handler for /hitksyx command
 async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let mut conn = rt.cache.lock().await;
     use modules::cache::KsyxCounterCache;
@@ -203,6 +227,7 @@ async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<(
     Ok(())
 }
 
+/// helper function for parsing the ehentai link
 async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[String; 2]>> {
     send!(@UploadPhoto; msg, bot);
 
@@ -247,6 +272,7 @@ async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[Str
     Ok(gid_list)
 }
 
+/// handler for the /eh command
 async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     use modules::provider::EhentaiProvider;
     let gid_list = parse_eh_gidlist(&msg, &bot).await?;
@@ -275,6 +301,7 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
     Ok(())
 }
 
+/// handler for the /ehseed command
 async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let gid_list = parse_eh_gidlist(&msg, &bot).await?;
 
@@ -302,6 +329,7 @@ async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Resul
     Ok(())
 }
 
+/// handler for the /mjx command
 async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     use modules::provider::NsfwProvider;
     send!(@UploadPhoto; msg, bot);
@@ -319,6 +347,54 @@ async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()
     Ok(())
 }
 
+/// handler for the /cookpiggy command
+async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    use modules::provider::RecipeProvider;
+
+    let recipe = rt.req.get_pig_recipe().await;
+    if let Err(e) = recipe {
+        send!(msg, bot, format!("今天没法吃 piggy 了呜呜呜: {e}"));
+        return Ok(());
+    }
+
+    send!(msg, bot, recipe.unwrap());
+
+    Ok(())
+}
+
+/// handler for the /ghs command
+async fn ghs_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    use modules::provider::NsfwProvider;
+
+    send!(@UploadPhoto; msg, bot);
+
+    let resp = rt.req.fetch_anime_image().await;
+
+    match resp {
+        Ok((image_link, image_info)) => {
+            bot.send_photo(msg.chat.id, teloxide::types::InputFile::url(image_link))
+                .parse_mode(teloxide::types::ParseMode::Html)
+                .caption(image_info)
+                .await?
+        }
+        Err(e) => bot.send_message(msg.chat.id, e.to_string()).await?,
+    };
+
+    Ok(())
+}
+
+/// handler for the collect command
+async fn collect_handler(msg: Message, bot: AutoSend<Bot>, dialogue: Dialogue) -> Result<()> {
+    send!(
+        msg,
+        bot,
+        "你可以开始转发信息了，使用命令 /collect_done 来结束命令收集"
+    );
+    dialogue.update(DialogueStatus::CmdCollectRunning).await?;
+    Ok(())
+}
+
+/// message handler for the /collect command
 async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
     let mut collector = rt.cache.lock().await;
     let who_want_these = msg
@@ -341,50 +417,7 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
     Ok(())
 }
 
-async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    use modules::provider::RecipeProvider;
-
-    let recipe = rt.req.get_pig_recipe().await;
-    if let Err(e) = recipe {
-        send!(msg, bot, format!("今天没法吃 piggy 了呜呜呜: {e}"));
-        return Ok(());
-    }
-
-    send!(msg, bot, recipe.unwrap());
-
-    Ok(())
-}
-
-async fn ghs_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    use modules::provider::NsfwProvider;
-
-    send!(@UploadPhoto; msg, bot);
-
-    let resp = rt.req.fetch_anime_image().await;
-
-    match resp {
-        Ok((image_link, image_info)) => {
-            bot.send_photo(msg.chat.id, teloxide::types::InputFile::url(image_link))
-                .parse_mode(teloxide::types::ParseMode::Html)
-                .caption(image_info)
-                .await?
-        }
-        Err(e) => bot.send_message(msg.chat.id, e.to_string()).await?,
-    };
-
-    Ok(())
-}
-
-async fn collect_handler(msg: Message, bot: AutoSend<Bot>, dialogue: Dialogue) -> Result<()> {
-    send!(
-        msg,
-        bot,
-        "你可以开始转发信息了，使用命令 /collect_done 来结束命令收集"
-    );
-    dialogue.update(DialogueStatus::CmdCollectRunning).await?;
-    Ok(())
-}
-
+/// handler for /collectdone command
 async fn exit_collect_handler(
     msg: Message,
     bot: AutoSend<Bot>,
@@ -416,6 +449,7 @@ async fn exit_collect_handler(
     Ok(())
 }
 
+/// exchange calculate helper function
 async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) -> Result<String> {
     use modules::cache::CurrenciesCache;
     use modules::provider::CurrenciesRateProvider;
@@ -459,6 +493,7 @@ Date: {}
     ))
 }
 
+/// handler for /exchange command
 async fn exchange_handler(
     msg: Message,
     bot: AutoSend<Bot>,
@@ -509,10 +544,11 @@ async fn get_weather(msg: Message, rt: RedisRT) -> Result<String> {
     Ok(format!("<a href=\"{pic}\">{text}</a>"))
 }
 
+/// command for /weather command
 async fn weather_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let chat_id = msg.chat.id;
-    bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing)
-        .await?;
+    send!(@Typing; msg, bot);
+
     let response = get_weather(msg, rt).await;
 
     match response {
