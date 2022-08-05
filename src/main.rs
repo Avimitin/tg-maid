@@ -23,6 +23,13 @@ async fn run() {
     let fetcher = butler::Fetcher::new();
     let runtime = butler::Runtime::new(redis_conn, fetcher);
 
+    butler::spawn_healthcheck_listner(
+        std::env::var("HEALTHCHECK_PORT")
+            .unwrap_or_else(|_| "11451".to_string())
+            .parse::<u16>()
+            .expect("Invalid health check port number!"),
+    );
+
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
         .enable_ctrlc_handler()
