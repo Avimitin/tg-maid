@@ -175,16 +175,16 @@ impl PossibleEhentaiResponse {
 }
 
 #[async_trait::async_trait]
-pub trait EhentaiFetcher {
+pub trait EhentaiProvider {
     type Result;
-    async fn get_ehentai_comic_data(&self, gid_list: &[[String; 2]]) -> Self::Result;
+    async fn fetch_ehentai_comic_data(&self, gid_list: &[[String; 2]]) -> Self::Result;
 }
 
 #[async_trait::async_trait]
-impl EhentaiFetcher for crate::butler::Fetcher {
+impl EhentaiProvider for crate::butler::Fetcher {
     type Result = anyhow::Result<EhentaiMetadataResponse>;
 
-    async fn get_ehentai_comic_data(&self, gid_list: &[[String; 2]]) -> Self::Result {
+    async fn fetch_ehentai_comic_data(&self, gid_list: &[[String; 2]]) -> Self::Result {
         let api_url: reqwest::Url =
             reqwest::Url::parse("https://api.e-hentai.org/api.php").unwrap();
 

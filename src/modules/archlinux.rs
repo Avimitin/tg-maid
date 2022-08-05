@@ -46,7 +46,7 @@ Last Update: {}
 /// Types that implement ArchLinuxPacman trait should have two method:
 /// `pacman -Si` and `pacman -Ss`.
 #[async_trait::async_trait]
-pub trait ArchLinuxPacman {
+pub trait ArchLinuxPkgProvider {
     /// Customize search output type
     type SearchOutput;
     /// Act like `pacman -Ss`, and with `max` limit the output items
@@ -61,7 +61,7 @@ use anyhow::Context;
 const SEARCH_BASE_URL: &str = "https://www.archlinux.org/packages/search/json";
 
 #[async_trait::async_trait]
-impl ArchLinuxPacman for Fetcher {
+impl ArchLinuxPkgProvider for Fetcher {
     async fn get_pkg_info(&self, pkg: &str) -> anyhow::Result<PackageInfo> {
         let url = reqwest::Url::parse_with_params(SEARCH_BASE_URL, &[("name", pkg)])
             .with_context(|| format!("{pkg} is a invalid params"))?;

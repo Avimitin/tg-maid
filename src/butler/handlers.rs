@@ -122,7 +122,7 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
 
     send!(@Typing; msg, bot);
 
-    use modules::request::ArchLinuxPacman;
+    use modules::provider::ArchLinuxPkgProvider;
 
     match operation {
         "-Si" => {
@@ -248,9 +248,9 @@ async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[Str
 }
 
 async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    use modules::request::EhentaiFetcher;
+    use modules::provider::EhentaiProvider;
     let gid_list = parse_eh_gidlist(&msg, &bot).await?;
-    let response = rt.req.get_ehentai_comic_data(&gid_list).await;
+    let response = rt.req.fetch_ehentai_comic_data(&gid_list).await;
     match response {
         Ok(resp) => {
             if resp.gmetadata.is_empty() {
@@ -278,8 +278,8 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
 async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let gid_list = parse_eh_gidlist(&msg, &bot).await?;
 
-    use modules::request::EhentaiFetcher;
-    let response = rt.req.get_ehentai_comic_data(&gid_list).await;
+    use modules::provider::EhentaiProvider;
+    let response = rt.req.fetch_ehentai_comic_data(&gid_list).await;
     match response {
         Ok(resp) => {
             if resp.gmetadata.is_empty() {
@@ -303,10 +303,10 @@ async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Resul
 }
 
 async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    use modules::request::NsfwContentFetcher;
+    use modules::provider::NsfwProvider;
     send!(@UploadPhoto; msg, bot);
 
-    let resp = rt.req.get_photograph().await;
+    let resp = rt.req.fetch_photograph().await;
 
     match resp {
         Ok(s) => {
@@ -342,7 +342,7 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
 }
 
 async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    use modules::request::RecipeProvider;
+    use modules::provider::RecipeProvider;
 
     let recipe = rt.req.get_pig_recipe().await;
     if let Err(e) = recipe {
@@ -356,11 +356,11 @@ async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Re
 }
 
 async fn ghs_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
-    use modules::request::NsfwContentFetcher;
+    use modules::provider::NsfwProvider;
 
     send!(@UploadPhoto; msg, bot);
 
-    let resp = rt.req.get_anime_image().await;
+    let resp = rt.req.fetch_anime_image().await;
 
     match resp {
         Ok((image_link, image_info)) => {
@@ -418,7 +418,7 @@ async fn exit_collect_handler(
 
 async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) -> Result<String> {
     use modules::cache::CurrenciesCache;
-    use modules::request::CurrenciesFetcher;
+    use modules::provider::CurrenciesRateProvider;
 
     let mut cache = rt.cache.lock().await;
     if !cache.verify_date().await {
@@ -439,7 +439,7 @@ async fn calculate_exchange(rt: RedisRT, amount: f64, from: String, to: String) 
     // Early drop the MutexGuard to avoid the below request block the redis locker
     drop(cache);
 
-    let rate_info = rt.req.get_rate(&from, &to).await?;
+    let rate_info = rt.req.fetch_rate(&from, &to).await?;
 
     Ok(format!(
         r#"
@@ -498,14 +498,14 @@ async fn help_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
 }
 
 async fn get_weather(msg: Message, rt: RedisRT) -> Result<String> {
-    use modules::request::WeatherReporter;
+    use modules::provider::WeatherProvider;
     let text = msg.text().unwrap();
     let parts = text.split(' ').collect::<Vec<&str>>();
     if parts.len() < 2 {
         anyhow::bail!("No enough argument. Usage example: /weather 上海")
     }
 
-    let (text, pic) = rt.req.forecast_weather(parts[1]).await?;
+    let (text, pic) = rt.req.fetch_weather(parts[1]).await?;
     Ok(format!("<a href=\"{pic}\">{text}</a>"))
 }
 

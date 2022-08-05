@@ -7,10 +7,10 @@ mod nsfw;
 mod piggy;
 mod weather;
 
-pub mod request {
+pub mod provider {
     pub use super::{
-        archlinux::ArchLinuxPacman, currency::CurrenciesFetcher, ehentai::EhentaiFetcher,
-        nsfw::NsfwContentFetcher, piggy::RecipeProvider, weather::WeatherReporter,
+        archlinux::ArchLinuxPkgProvider, currency::CurrenciesRateProvider, ehentai::EhentaiProvider,
+        nsfw::NsfwProvider, piggy::RecipeProvider, weather::WeatherProvider,
     };
 }
 
@@ -21,7 +21,7 @@ pub mod cache {
 }
 
 pub mod prelude {
-    pub use super::request::*;
+    pub use super::provider::*;
     pub use super::cache::*;
     pub use super::collect::MsgForm;
 }

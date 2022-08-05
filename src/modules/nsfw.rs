@@ -16,12 +16,12 @@ pub struct KonachanApiResponse {
 /// NsfwContentFetcher require two type of output. One should return
 /// Anime Waifu uwu, another one should return porn photograph.
 #[async_trait]
-pub trait NsfwContentFetcher {
+pub trait NsfwProvider {
     type AnimeOutput;
     type PhotographOutput;
 
-    async fn get_anime_image(&self) -> Self::AnimeOutput;
-    async fn get_photograph(&self) -> Self::PhotographOutput;
+    async fn fetch_anime_image(&self) -> Self::AnimeOutput;
+    async fn fetch_photograph(&self) -> Self::PhotographOutput;
 }
 
 /// The response from MJX API is different. This type can match those different response.
@@ -45,12 +45,12 @@ impl MjxApiPossibleReponse {
 
 /// Default impl the NsfwContentFetcher for reqwest::Client
 #[async_trait::async_trait]
-impl NsfwContentFetcher for Fetcher {
+impl NsfwProvider for Fetcher {
     type AnimeOutput = anyhow::Result<(reqwest::Url, String)>;
     type PhotographOutput = anyhow::Result<reqwest::Url>;
 
     /// The default implementation use Konachan as the R18 Anime image source
-    async fn get_anime_image(&self) -> anyhow::Result<(reqwest::Url, String)> {
+    async fn fetch_anime_image(&self) -> anyhow::Result<(reqwest::Url, String)> {
         const LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
         let link = reqwest::Url::parse(LINK).unwrap();
 
@@ -76,7 +76,7 @@ impl NsfwContentFetcher for Fetcher {
 
     /// The default implementation fetch TaoBao image comment from bra/sex toy shop.
     /// This is not a perfic choice for porn photograph, I will try to find another source.
-    async fn get_photograph(&self) -> anyhow::Result<reqwest::Url> {
+    async fn fetch_photograph(&self) -> anyhow::Result<reqwest::Url> {
         let fallbacks_urls = [
             "https://api.uomg.com/api/rand.img3?format=json",
             "https://api.vvhan.com/api/tao?type=json",

@@ -49,16 +49,16 @@ pub trait CurrenciesCache: Send + Sync + Clone {
 }
 
 #[async_trait::async_trait]
-pub trait CurrenciesFetcher {
+pub trait CurrenciesRateProvider {
     type Rate;
-    async fn get_rate(&self, from: &str, to: &str) -> Self::Rate;
+    async fn fetch_rate(&self, from: &str, to: &str) -> Self::Rate;
 }
 
 #[async_trait::async_trait]
-impl CurrenciesFetcher for crate::butler::Fetcher {
+impl CurrenciesRateProvider for crate::butler::Fetcher {
     type Rate = anyhow::Result<CurrencyRateInfo>;
 
-    async fn get_rate(&self, from: &str, to: &str) -> Self::Rate {
+    async fn fetch_rate(&self, from: &str, to: &str) -> Self::Rate {
         // Thanks Asuna (GitHub @SpriteOvO)
         macro_rules! format_array {
             ( [ $( $pattern:literal ),+ $(,)? ] ) => {

@@ -1,4 +1,4 @@
-use crate::modules::{cache::*, request::*};
+use crate::modules::{cache::*, provider::*};
 use std::sync::Arc;
 // FIXME: This mutex locker is not suggested to be used
 // But vaultwarden used it in their projects.
@@ -10,12 +10,12 @@ where
     CACHE: CurrenciesCache + CollectedMsgCache + KsyxCounterCache,
     R: Send
         + Sync
-        + NsfwContentFetcher
-        + ArchLinuxPacman
-        + WeatherReporter
+        + NsfwProvider
+        + ArchLinuxPkgProvider
+        + WeatherProvider
         + RecipeProvider
-        + EhentaiFetcher
-        + CurrenciesFetcher,
+        + EhentaiProvider
+        + CurrenciesRateProvider,
 {
     pub cache: Arc<Mutex<CACHE>>,
     pub req: R,
@@ -27,12 +27,12 @@ where
     T: CurrenciesCache + CollectedMsgCache + KsyxCounterCache,
     R: Send
         + Sync
-        + NsfwContentFetcher
-        + ArchLinuxPacman
-        + WeatherReporter
+        + NsfwProvider
+        + ArchLinuxPkgProvider
+        + WeatherProvider
         + RecipeProvider
-        + EhentaiFetcher
-        + CurrenciesFetcher,
+        + EhentaiProvider
+        + CurrenciesRateProvider,
 {
     pub fn new(cache: T, req: R) -> Self {
         Self {
