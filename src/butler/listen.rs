@@ -8,3 +8,17 @@ pub fn spawn_healthcheck_listner(port: u16) {
         warp::serve(heartbeat).run(([127, 0, 0, 1], port)).await;
     });
 }
+
+#[tokio::test]
+async fn test_healthcheck() {
+    spawn_healthcheck_listner(11451);
+    assert_eq!(
+        "bong bong",
+        reqwest::get("http://localhost:11451/healthcheck")
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+    );
+}
