@@ -388,7 +388,7 @@ async fn collect_handler(msg: Message, bot: AutoSend<Bot>, dialogue: Dialogue) -
     send!(
         msg,
         bot,
-        "你可以开始转发信息了，使用命令 /collect_done 来结束命令收集"
+        "你可以开始转发信息了，使用命令 /collectdone 来结束命令收集"
     );
     dialogue.update(DialogueStatus::CmdCollectRunning).await?;
     Ok(())
@@ -404,11 +404,25 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
         .0;
 
     let msg_from = msg
-        .forward_from_user()
+        .forward_from_sender_name()
         .ok_or_else(|| anyhow::anyhow!("no user given"))?
-        .first_name
         .to_string();
-    let msg_text = msg.text().unwrap_or("Null").to_string();
+
+    let msg_text = {
+        if let Some(text) = msg.text() {
+            text.to_string()
+        } else if msg.video().is_some() {
+            "[video]".to_string()
+        } else if msg.audio().is_some() {
+            "[audio]".to_string()
+        } else if msg.sticker().is_some() {
+            "[sticker]".to_string()
+        } else if msg.photo().is_some() {
+            "[photo]".to_string()
+        } else {
+            "Unsupported message type".to_string()
+        }
+    };
 
     use crate::modules::{cache::CollectedMsgCache, prelude::MsgForm};
     collector
