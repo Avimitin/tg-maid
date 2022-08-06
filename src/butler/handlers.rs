@@ -115,6 +115,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     let msg_handler = Update::filter_message()
         .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
+        .branch(dptree::case![DialogueStatus::None].endpoint(message_filter))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stateful_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_message));
 
@@ -122,6 +123,21 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    let text = msg.text();
+    if let None = text {
+        // silently exit
+        return Ok(());
+    }
+    let text = text.unwrap();
+
+    if let Some(resp) = rt.patterns.try_match(text) {
+        send!(msg, bot, resp);
+    }
+
+    Ok(())
 }
 
 /// handler for /pacman command

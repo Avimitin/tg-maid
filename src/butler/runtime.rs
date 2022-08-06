@@ -19,6 +19,7 @@ where
 {
     pub cache: Arc<Mutex<CACHE>>,
     pub req: R,
+    pub patterns: Arc<super::MsgPatternMatcher>,
 }
 
 /// Default implementation use memory to store
@@ -37,6 +38,7 @@ where
     pub fn new(cache: T, req: R) -> Self {
         Self {
             req,
+            patterns: Arc::new(super::MsgPatternMatcher::prepare()),
             cache: Arc::new(Mutex::new(cache)),
         }
     }
