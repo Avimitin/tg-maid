@@ -11,5 +11,5 @@ RUN apt-get update && apt-get install -y \
       ca-certificates \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/*
-HEALTHCHECK CMD curl --fail http://localhost:11451 || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:11451/healthcheck || exit 1
 ENTRYPOINT ["/bin/butler"]
