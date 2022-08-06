@@ -127,7 +127,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
 async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let text = msg.text();
-    if let None = text {
+    if text.is_none() {
         // silently exit
         return Ok(());
     }

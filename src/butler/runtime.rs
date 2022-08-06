@@ -38,7 +38,7 @@ where
     pub fn new(cache: T, req: R) -> Self {
         Self {
             req,
-            patterns: Arc::new(super::MsgPatternMatcher::prepare()),
+            patterns: Arc::new(super::MsgPatternMatcher::generate()),
             cache: Arc::new(Mutex::new(cache)),
         }
     }
