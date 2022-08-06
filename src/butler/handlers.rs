@@ -153,18 +153,17 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
     }
     let operation = operation.unwrap();
 
-    let pkg = text.next();
-    if pkg.is_none() {
-        send!(msg, bot, "No package name! Abort");
-        return Ok(());
-    }
-
     send!(@Typing; msg, bot);
 
     use modules::provider::ArchLinuxPkgProvider;
 
     match operation {
         "-Si" => {
+            let pkg = text.next();
+            if pkg.is_none() {
+                send!(msg, bot, "No package name! Abort");
+                return Ok(());
+            }
             let resp = rt.req.get_pkg_info(pkg.unwrap()).await;
             match resp {
                 Ok(s) => send!(msg, bot, format!("{s}")),
@@ -172,6 +171,11 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
             }
         }
         "-Ss" => {
+            let pkg = text.next();
+            if pkg.is_none() {
+                send!(msg, bot, "No package name! Abort");
+                return Ok(());
+            }
             let resp = rt.req.search_pkg(pkg.unwrap(), 8).await;
             match resp {
                 Ok((Some(exact), list)) => {
