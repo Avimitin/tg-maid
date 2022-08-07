@@ -424,7 +424,7 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
         .0;
 
     let msg_from = {
-        if let Some(original_sender) = msg.from() {
+        if let Some(original_sender) = msg.forward_from_user() {
             original_sender.first_name.clone()
         } else if let Some(original_sender_name) = msg.forward_from_sender_name() {
             original_sender_name.to_string()
