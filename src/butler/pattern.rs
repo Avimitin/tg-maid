@@ -67,6 +67,18 @@ impl Patterns {
             };
         }
 
+        rule!("能", |words, i| {
+            if words.len() - 1 < i {
+                return None;
+            }
+
+            words
+                .iter()
+                .skip(i + 1)
+                .find(|x| **x == "吗")
+                .map(|_| randomize!("能!", "不能！"))
+        });
+
         rule!("不", |words, i| {
             if words.len() - 1 < i {
                 return None;
