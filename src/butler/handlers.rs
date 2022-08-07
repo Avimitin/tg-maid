@@ -423,10 +423,15 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
         .id
         .0;
 
-    let msg_from = msg
-        .forward_from_sender_name()
-        .ok_or_else(|| anyhow::anyhow!("no user given"))?
-        .to_string();
+    let msg_from = {
+        if let Some(original_sender) = msg.from() {
+            original_sender.first_name.clone()
+        } else if let Some(original_sender_name) = msg.forward_from_sender_name() {
+            original_sender_name.to_string()
+        } else {
+            "Anoynomous".to_string()
+        }
+    };
 
     let msg_text = {
         if let Some(text) = msg.text() {
@@ -473,6 +478,14 @@ async fn exit_collect_handler(
         .finish(msg.from().expect("Message came from non-user").id.0)
         .await;
     match result {
+        Some(s) if s.is_empty() => {
+            bot.edit_message_text(
+                msg.chat.id,
+                msg_id,
+                "Empty message, something is going wrong...",
+            )
+            .await?
+        }
         Some(s) => bot.edit_message_text(msg.chat.id, msg_id, s).await?,
         None => {
             bot.edit_message_text(msg.chat.id, msg_id, "你还没有收集过消息")
