@@ -4,6 +4,7 @@ mod listen;
 mod pattern;
 mod req;
 mod runtime;
+mod watcher;
 
 pub(crate) use {
     commands::Command,
