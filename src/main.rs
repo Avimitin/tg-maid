@@ -41,7 +41,7 @@ async fn run() {
 
     let weibo_listen_config = butler::watcher::weibo::Config::new()
         .limit(10)
-        .period(std::time::Duration::from_secs(10))
+        .period(std::time::Duration::from_secs(3600))
         .append_groups(&allow_weibo_watcher_groups);
 
     butler::watcher::weibo::spawn(bot.clone(), weibo_listen_config);
