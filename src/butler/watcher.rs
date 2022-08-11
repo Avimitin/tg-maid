@@ -13,7 +13,7 @@ pub mod weibo {
     impl Response {
         fn to_telegram_html(&self, limit: u8) -> String {
             self.data.iter().take(limit as usize).fold(
-                format!("更新时间: {}", self.update_time),
+                format!("微博热搜:\n更新时间: {}", self.update_time),
                 |sum, data| {
                     format!(
                         r#"{sum}
