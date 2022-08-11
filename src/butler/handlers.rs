@@ -107,7 +107,8 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::HitKsyx                    -> ksyx_handler;
         Command::Eh                         -> eh_handler;
         Command::EhSeed                     -> eh_seed_handler;
-        Command::Pacman                     -> pacman_handler
+        Command::Pacman                     -> pacman_handler;
+        Command::Id                         -> id_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -136,6 +137,19 @@ async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
     if let Some(resp) = rt.patterns.try_match(text) {
         send!(msg, bot, resp);
     }
+
+    Ok(())
+}
+
+async fn id_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
+    let user_id = if let Some(reply) = msg.reply_to_message() {
+        reply.from().map_or(0, |user| user.id.0)
+    } else {
+        msg.from().map_or(0, |user| user.id.0)
+    };
+    let chat_id = msg.chat.id;
+
+    send!(msg, bot, format!("user id: {user_id}\nchat id: {chat_id}"));
 
     Ok(())
 }

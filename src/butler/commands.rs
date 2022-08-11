@@ -41,4 +41,7 @@ pub enum Command {
 
     #[command(description = "Interact with piggy")]
     CookPiggy,
+
+    #[command(description = "Get some useful id")]
+    Id
 }
