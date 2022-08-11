@@ -43,5 +43,5 @@ pub enum Command {
     CookPiggy,
 
     #[command(description = "Get some useful id")]
-    Id
+    Id,
 }
