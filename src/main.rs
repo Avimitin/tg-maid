@@ -30,6 +30,22 @@ async fn run() {
             .expect("Invalid health check port number!"),
     );
 
+    let allow_weibo_watcher_groups = std::env::var("WEIBO_NOTIFY_GROUPS")
+        .unwrap_or_else(|_| panic!("no notify group specify"))
+        .split(',')
+        .map(|gid| {
+            gid.parse::<i64>()
+                .unwrap_or_else(|_| panic!("invalid gid: {gid}"))
+        })
+        .collect::<Vec<i64>>();
+
+    let weibo_listen_config = butler::watcher::weibo::Config::new()
+        .limit(10)
+        .period(std::time::Duration::from_secs(10))
+        .append_groups(&allow_weibo_watcher_groups);
+
+    butler::watcher::weibo::spawn(bot.clone(), weibo_listen_config);
+
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
         .enable_ctrlc_handler()

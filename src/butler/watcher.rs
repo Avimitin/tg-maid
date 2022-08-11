@@ -1,7 +1,38 @@
 pub mod weibo {
     use anyhow::Result;
+    use serde::Deserialize;
     use std::sync::Arc;
     use teloxide::{prelude::*, types::ChatId, Bot};
+
+    #[derive(Deserialize)]
+    struct Response {
+        update_time: String,
+        data: Vec<Data>,
+    }
+
+    impl Response {
+        fn to_telegram_html(&self, limit: u8) -> String {
+            self.data.iter().take(limit as usize).fold(
+                format!("更新时间: {}", self.update_time),
+                |sum, data| {
+                    format!(
+                        r#"{sum}
+* <a href="{}">{}. {}</a>
+  热度: {}"#,
+                        data.url, data.index, data.title, data.hot
+                    )
+                },
+            )
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct Data {
+        index: u8,
+        title: String,
+        hot: String,
+        url: String,
+    }
 
     pub struct Config {
         groups: Vec<ChatId>,
@@ -34,15 +65,26 @@ pub mod weibo {
         }
     }
 
-    async fn watch() -> Result<()> {
-        Ok(())
+    async fn get_trending(client: &reqwest::Client) -> Result<Response> {
+        Ok(client
+            .get("https://api.vvhan.com/api/hotlist?type=wbHot")
+            .send()
+            .await?
+            .json()
+            .await?)
     }
 
-    async fn handle_response(bot: AutoSend<Bot>, groups: Arc<Vec<ChatId>>, response: Result<()>) {
+    async fn handle_response(rt: Arc<Runtime>, response: Result<Response>) {
         match response {
-            Ok(()) => {
-                for group in groups.iter() {
-                    if let Err(error) = bot.send_message(*group, "ye").await {
+            Ok(resp) => {
+                let text = resp.to_telegram_html(rt.cfg.limits);
+                for group in rt.cfg.groups.iter() {
+                    if let Err(error) = rt
+                        .bot
+                        .send_message(*group, &text)
+                        .parse_mode(teloxide::types::ParseMode::Html)
+                        .await
+                    {
                         tracing::error!("fail to send data to {group}: {error}")
                     };
                 }
@@ -54,33 +96,49 @@ pub mod weibo {
     }
 
     async fn mainloop(
-        bot: AutoSend<Bot>,
+        rt: Arc<Runtime>,
+        rx: tokio::sync::watch::Receiver<u8>,
         mut heartbeat: tokio::time::Interval,
-        signal: tokio::sync::watch::Receiver<u8>,
-        groups: Arc<Vec<ChatId>>,
     ) {
         loop {
-            let mut rx = signal.clone();
-            let bot = bot.clone();
+            let mut rx = rx.clone();
+            let rt = rt.clone();
             tokio::select! {
                 _ = heartbeat.tick() => {
-                    let response = watch().await;
-                    handle_response(bot, groups.clone(), response).await;
+                    let response = get_trending(&rt.c).await;
+                    handle_response(rt, response).await;
                 }
+
                 _ = rx.changed() => {
                     tracing::info!("Weibo Watcher is exiting");
+                    break;
                 }
             }
         }
     }
 
-    pub fn spawn(bot: AutoSend<Bot>, cfg: Config) -> tokio::sync::watch::Sender<u8> {
+    struct Runtime {
+        bot: AutoSend<Bot>,
+        c: reqwest::Client,
+        cfg: Config,
+    }
+
+    pub fn spawn(bot: AutoSend<Bot>, cfg: Config) {
         let heartbeat = tokio::time::interval(cfg.period);
         let (tx, rx) = tokio::sync::watch::channel::<u8>(1);
-        let groups = Arc::new(cfg.groups);
 
-        tokio::task::spawn(mainloop(bot, heartbeat, rx, groups));
+        let runtime = Arc::new(Runtime {
+            bot,
+            cfg,
+            c: reqwest::Client::new(),
+        });
 
-        tx
+        tokio::task::spawn(mainloop(runtime, rx, heartbeat));
+        tokio::task::spawn(async move {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Error occur when waiting for ctrl-c signal");
+            tx.send(0).expect("fail to shutdown weibo listener");
+        });
     }
 }
