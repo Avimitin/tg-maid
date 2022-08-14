@@ -76,7 +76,7 @@ impl Patterns {
                 .iter()
                 .skip(i + 1)
                 .find(|x| **x == "吗")
-                .map(|_| randomize!("能!", "不能！"))
+                .map(|_| randomize!("能！", "不能！"))
         });
 
         rule!("不", |words, i| {
