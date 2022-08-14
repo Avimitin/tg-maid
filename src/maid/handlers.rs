@@ -135,7 +135,9 @@ async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
     let text = text.unwrap();
 
     if let Some(resp) = rt.patterns.try_match(text) {
-        send!(msg, bot, resp);
+        bot.send_message(msg.chat.id, resp)
+            .reply_to_message_id(msg.id)
+            .await?;
     }
 
     Ok(())
