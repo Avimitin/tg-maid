@@ -1,5 +1,5 @@
-mod butler;
 mod cache;
+mod maid;
 mod modules;
 
 use teloxide::{dispatching::dialogue, prelude::*};
@@ -18,12 +18,12 @@ async fn run() {
     let redis_addr = std::env::var("REDIS_ADDR")
         .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`.");
     let redis_conn = connect_redis(&redis_addr).await;
-    let handler = butler::handler_schema();
-    let status = dialogue::InMemStorage::<butler::DialogueStatus>::new();
-    let fetcher = butler::Fetcher::new();
-    let runtime = butler::Runtime::new(redis_conn, fetcher);
+    let handler = maid::handler_schema();
+    let status = dialogue::InMemStorage::<maid::DialogueStatus>::new();
+    let fetcher = maid::Fetcher::new();
+    let runtime = maid::Runtime::new(redis_conn, fetcher);
 
-    butler::spawn_healthcheck_listner(
+    maid::spawn_healthcheck_listner(
         std::env::var("HEALTHCHECK_PORT")
             .unwrap_or_else(|_| "11451".to_string())
             .parse::<u16>()
@@ -39,12 +39,12 @@ async fn run() {
         })
         .collect::<Vec<i64>>();
 
-    let weibo_listen_config = butler::watcher::weibo::Config::new()
+    let weibo_listen_config = maid::watcher::weibo::Config::new()
         .limit(10)
         .period(std::time::Duration::from_secs(3600))
         .append_groups(&allow_weibo_watcher_groups);
 
-    butler::watcher::weibo::spawn(bot.clone(), weibo_listen_config);
+    maid::watcher::weibo::spawn(bot.clone(), weibo_listen_config);
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])

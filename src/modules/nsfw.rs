@@ -1,4 +1,4 @@
-use crate::butler::Fetcher;
+use crate::maid::Fetcher;
 use anyhow::Context;
 use async_trait::async_trait;
 use rand::Rng;

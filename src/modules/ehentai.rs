@@ -181,7 +181,7 @@ pub trait EhentaiProvider {
 }
 
 #[async_trait::async_trait]
-impl EhentaiProvider for crate::butler::Fetcher {
+impl EhentaiProvider for crate::maid::Fetcher {
     type Result = anyhow::Result<EhentaiMetadataResponse>;
 
     async fn fetch_ehentai_comic_data(&self, gid_list: &[[String; 2]]) -> Self::Result {

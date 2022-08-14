@@ -55,7 +55,7 @@ pub trait ArchLinuxPkgProvider {
     async fn get_pkg_info(&self, pkg: &str) -> anyhow::Result<PackageInfo>;
 }
 
-use crate::butler::Fetcher;
+use crate::maid::Fetcher;
 use anyhow::Context;
 
 const SEARCH_BASE_URL: &str = "https://www.archlinux.org/packages/search/json";

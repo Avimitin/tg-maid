@@ -5,7 +5,7 @@ use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
 
-use crate::butler::Fetcher;
+use crate::maid::Fetcher;
 
 /// Generate relation from command literal to their corresponding endpoint.
 ///

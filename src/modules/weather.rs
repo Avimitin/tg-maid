@@ -1,4 +1,4 @@
-use crate::butler::Fetcher;
+use crate::maid::Fetcher;
 use async_trait::async_trait;
 
 /// Implement weather report function.

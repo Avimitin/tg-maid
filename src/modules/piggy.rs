@@ -46,7 +46,7 @@ pub trait RecipeProvider {
 }
 
 #[async_trait::async_trait]
-impl RecipeProvider for crate::butler::Fetcher {
+impl RecipeProvider for crate::maid::Fetcher {
     type Result = anyhow::Result<String>;
 
     async fn get_pig_recipe(&self) -> Self::Result {

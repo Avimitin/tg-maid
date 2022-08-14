@@ -55,7 +55,7 @@ pub trait CurrenciesRateProvider {
 }
 
 #[async_trait::async_trait]
-impl CurrenciesRateProvider for crate::butler::Fetcher {
+impl CurrenciesRateProvider for crate::maid::Fetcher {
     type Rate = anyhow::Result<CurrencyRateInfo>;
 
     async fn fetch_rate(&self, from: &str, to: &str) -> Self::Rate {
