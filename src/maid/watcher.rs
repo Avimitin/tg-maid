@@ -1,3 +1,4 @@
+#[cfg(feature = "weibo")]
 pub mod weibo {
     use anyhow::Result;
     use serde::Deserialize;

@@ -25,3 +25,7 @@ regex = "1.6.0"
 paste = "1.0.7"
 warp = "0.3.2"
 jieba-rs = "0.6.6"
+
+[features]
+default = []
+weibo = []

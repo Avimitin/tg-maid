@@ -12,6 +12,25 @@ async fn connect_redis(addr: &str) -> redis::aio::ConnectionManager {
         .expect("fail to connect to redis")
 }
 
+#[cfg(feature = "weibo")]
+fn setup_weibo_watcher(bot: AutoSend<Bot>) {
+    let allow_weibo_watcher_groups = std::env::var("WEIBO_NOTIFY_GROUPS")
+        .unwrap_or_else(|_| panic!("no notify group specify"))
+        .split(',')
+        .map(|gid| {
+            gid.parse::<i64>()
+                .unwrap_or_else(|_| panic!("invalid gid: {gid}"))
+        })
+        .collect::<Vec<i64>>();
+
+    let weibo_listen_config = maid::watcher::weibo::Config::new()
+        .limit(10)
+        .period(std::time::Duration::from_secs(21600))
+        .append_groups(&allow_weibo_watcher_groups);
+
+    maid::watcher::weibo::spawn(bot, weibo_listen_config);
+}
+
 async fn run() {
     let bot = Bot::from_env().auto_send();
 
@@ -30,21 +49,8 @@ async fn run() {
             .expect("Invalid health check port number!"),
     );
 
-    let allow_weibo_watcher_groups = std::env::var("WEIBO_NOTIFY_GROUPS")
-        .unwrap_or_else(|_| panic!("no notify group specify"))
-        .split(',')
-        .map(|gid| {
-            gid.parse::<i64>()
-                .unwrap_or_else(|_| panic!("invalid gid: {gid}"))
-        })
-        .collect::<Vec<i64>>();
-
-    let weibo_listen_config = maid::watcher::weibo::Config::new()
-        .limit(10)
-        .period(std::time::Duration::from_secs(21600))
-        .append_groups(&allow_weibo_watcher_groups);
-
-    maid::watcher::weibo::spawn(bot.clone(), weibo_listen_config);
+    #[cfg(feature = "weibo")]
+    setup_weibo_watcher(bot.clone());
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
