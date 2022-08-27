@@ -31,6 +31,31 @@ fn setup_weibo_watcher(bot: AutoSend<Bot>) {
     maid::watcher::weibo::spawn(bot, weibo_listen_config);
 }
 
+#[cfg(feature = "osu")]
+async fn setup_osu_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
+    let register_osu_account = std::env::var("REGISTER_OSU_ACCOUNT")
+        .unwrap_or_else(|_| panic!("no osu account was given"))
+        .split(',')
+        .map(|account| account.into())
+        .collect::<Vec<Box<str>>>();
+    let osu_event_notify_group = std::env::var("OSU_EVENT_NOTIFY_TO")
+        .unwrap_or_else(|_| panic!("You must at least give one group id for notify"))
+        .split(',')
+        .map(|id| {
+            let id = id
+                .parse::<i64>()
+                .unwrap_or_else(|err| panic!("{id} can't be parse into number: {err}"));
+            ChatId(id)
+        })
+        .collect::<Vec<ChatId>>();
+    let token = std::env::var("OSU_API_TOKEN")
+        .unwrap_or_else(|_| panic!("I need the api token to make a request"));
+    let settings =
+        maid::watcher::osu::Settings::new(token, register_osu_account, osu_event_notify_group);
+    let redis_conn = connect_redis(redis_addr).await;
+    maid::watcher::osu::spawn_watcher(settings, bot, redis_conn);
+}
+
 async fn run() {
     let bot = Bot::from_env().auto_send();
 
@@ -51,6 +76,9 @@ async fn run() {
 
     #[cfg(feature = "weibo")]
     setup_weibo_watcher(bot.clone());
+
+    #[cfg(feature = "osu")]
+    setup_osu_watcher(bot.clone(), &redis_addr).await;
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])

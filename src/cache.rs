@@ -3,6 +3,9 @@ use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
 use tracing::error;
 
+#[cfg(feature = "osu")]
+use crate::maid::watcher::osu::{EventCacheStatus, OsuEventCache};
+
 const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
 const CODE_PREFIX_KEY: &str = "currency-code";
 const DATE_KEY: &str = "currency-last-update";
@@ -67,5 +70,20 @@ impl CollectedMsgCache for ConnectionManager {
 impl KsyxCounterCache for ConnectionManager {
     async fn hit(&mut self) -> anyhow::Result<u32> {
         Ok(self.incr("KSYX_HIT_COUNTER", 1).await?)
+    }
+}
+
+#[cfg(feature = "osu")]
+#[async_trait::async_trait]
+impl OsuEventCache for ConnectionManager {
+    async fn store_osu_event_cache(&mut self, event_hash: u64) -> anyhow::Result<EventCacheStatus> {
+        let i: Result<u8, _> = self.get(event_hash).await;
+
+        if i.is_err() {
+            let _: () = self.set(event_hash, 1).await?;
+            return Ok(EventCacheStatus::None);
+        }
+
+        Ok(EventCacheStatus::Exist)
     }
 }

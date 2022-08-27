@@ -29,3 +29,4 @@ jieba-rs = "0.6.6"
 [features]
 default = []
 weibo = []
+osu = []
