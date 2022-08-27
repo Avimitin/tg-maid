@@ -43,9 +43,6 @@ struct Response {
 #[derive(Deserialize, Debug)]
 struct UserEvent {
     display_html: String,
-    beatmap_id: String,
-    beatmapset_id: String,
-    date: String,
 }
 
 #[derive(Hash)]
@@ -53,6 +50,8 @@ struct UserEventHtmlExt {
     who: String,
     achieve: String,
     on: String,
+    user_link: String,
+    map_link: String,
 }
 
 impl UserEventHtmlExt {
@@ -60,6 +59,10 @@ impl UserEventHtmlExt {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
+    }
+
+    fn to_html(&self) -> String {
+        format!(r#"<a href="{}">{}</a> {}<a href="{}">{}</a>"#, self.user_link, self.who, self.achieve, self.map_link, self.on)
     }
 }
 
@@ -87,6 +90,11 @@ impl UserEventHtmlExt {
             .select(&selector)
             .map(|element| element.text().collect::<Vec<_>>())
             .next();
+
+        let link_selector = Selector::parse("a").unwrap();
+        let links = html.select(&link_selector)
+            .map(|elem| elem.value().attr("href").unwrap())
+            .collect::<Vec<&str>>();
 
         let text = text.ok_or_else(|| anyhow::anyhow!("no event found"))?;
         if text.is_empty() {
@@ -117,10 +125,16 @@ impl UserEventHtmlExt {
             text.next().unwrap()
         );
 
+        const ENDPOINT: &str = "https://osu.ppy.sh";
+        let user_link = format!("{ENDPOINT}{}", links[0]);
+        let map_link = format!("{ENDPOINT}{}", links[1]);
+
         Ok(Self {
             who: who.to_string(),
             achieve,
             on,
+            user_link,
+            map_link,
         })
     }
 }
@@ -187,7 +201,9 @@ async fn watch_and_response<C: OsuEventCache>(rt: Arc<Runtime<C>>) {
                 for chat in &rt.config.notifier {
                     let send_result = rt
                         .bot
-                        .send_message(*chat, format!("New OSU Event:\n{event}"))
+                        .send_message(*chat, format!("New OSU Event:\n{}", event.to_html()))
+                        .parse_mode(teloxide::types::ParseMode::Html)
+                        .disable_web_page_preview(true)
                         .await;
                     if let Err(e) = send_result {
                         tracing::error!("fail to send osu event to {chat}: {e}")
