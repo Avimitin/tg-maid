@@ -27,6 +27,6 @@ warp = "0.3.2"
 jieba-rs = "0.6.6"
 
 [features]
-default = []
+default = ["osu"]
 weibo = []
 osu = []
