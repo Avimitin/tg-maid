@@ -80,7 +80,7 @@ impl OsuEventCache for ConnectionManager {
         let i: Result<u8, _> = self.get(event_hash).await;
 
         if i.is_err() {
-            let _: () = self.set(event_hash, 1).await?;
+            let _: () = self.set_ex(event_hash, 1, 60 * 60 * 24).await?;
             return Ok(EventCacheStatus::None);
         }
 
