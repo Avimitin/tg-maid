@@ -219,7 +219,7 @@ async fn watch_and_response<C: OsuEventCache>(rt: Arc<Runtime<C>>) {
 
 pub fn spawn_watcher<C: OsuEventCache + 'static>(cfg: Settings, bot: AutoSend<Bot>, cache: C) {
     let (tx, rx) = tokio::sync::watch::channel(1);
-    let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(10));
+    let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(60));
     let rt = Arc::new(Runtime {
         client: reqwest::Client::new(),
         config: cfg,
