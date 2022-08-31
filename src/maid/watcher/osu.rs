@@ -62,7 +62,10 @@ impl UserEventHtmlExt {
     }
 
     fn to_html(&self) -> String {
-        format!(r#"<a href="{}">{}</a> {}<a href="{}">{}</a>"#, self.user_link, self.who, self.achieve, self.map_link, self.on)
+        format!(
+            r#"<a href="{}">{}</a> {}<a href="{}">{}</a>"#,
+            self.user_link, self.who, self.achieve, self.map_link, self.on
+        )
     }
 }
 
@@ -92,7 +95,8 @@ impl UserEventHtmlExt {
             .next();
 
         let link_selector = Selector::parse("a").unwrap();
-        let links = html.select(&link_selector)
+        let links = html
+            .select(&link_selector)
             .map(|elem| elem.value().attr("href").unwrap())
             .collect::<Vec<&str>>();
 
@@ -243,9 +247,5 @@ pub fn spawn_watcher<C: OsuEventCache + 'static>(cfg: Settings, bot: AutoSend<Bo
         }
     });
 
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
-        tracing::info!("quiting osu watcher...");
-        tx.send(0).expect("fail to send signal into osu watcher");
-    });
+    tokio::spawn(super::notify_on_ctrl_c(tx));
 }
