@@ -3,3 +3,5 @@ pub mod weibo;
 
 #[cfg(feature = "osu")]
 pub mod osu;
+
+pub mod bili;
