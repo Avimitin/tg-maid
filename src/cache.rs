@@ -1,10 +1,13 @@
 use crate::modules::cache::*;
+use async_trait::async_trait;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
 use tracing::error;
 
 #[cfg(feature = "osu")]
 use crate::maid::watcher::osu::{EventCacheStatus, OsuEventCache};
+
+use crate::maid::watcher::bili::BiliRoomQueryCache;
 
 const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
 const CODE_PREFIX_KEY: &str = "currency-code";
@@ -85,5 +88,19 @@ impl OsuEventCache for ConnectionManager {
         }
 
         Ok(EventCacheStatus::Exist)
+    }
+}
+
+#[async_trait]
+impl BiliRoomQueryCache for ConnectionManager {
+    async fn update_status(&mut self, room_id: u32, status: u8) -> anyhow::Result<u8> {
+        let key = format!("BILI_LIVE_ROOM_ID_{room_id}");
+        let old_val: Option<u8> = self.get(&key).await?;
+        self.set(&key, status).await?;
+        if old_val.is_none() {
+            return Ok(255)
+        }
+        let old_val = old_val.unwrap();
+        Ok(old_val)
     }
 }

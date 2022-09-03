@@ -56,6 +56,34 @@ async fn setup_osu_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
     maid::watcher::osu::spawn_watcher(settings, bot, redis_conn);
 }
 
+async fn setup_bilibili_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
+    let bili_event_notify_group = std::env::var("BILI_NOTIFY_GROUP")
+        .unwrap_or_else(|_| panic!("You must at least give one group id for notify"))
+        .split(',')
+        .map(|id| {
+            let id = id
+                .parse::<i64>()
+                .unwrap_or_else(|err| panic!("{id} can't be parse into number: {err}"));
+            ChatId(id)
+        })
+        .collect::<Vec<ChatId>>();
+    let watch_room_ids = std::env::var("BILI_WATCH_USER_ID")
+        .unwrap_or_else(|_| panic!("You must at least give one room id for watching"))
+        .split(',')
+        .map(|id| {
+            id.parse::<u32>()
+                .unwrap_or_else(|err| panic!("{id} can't be parse into number: {err}"))
+        })
+        .collect::<Vec<u32>>();
+
+    let redis_conn = connect_redis(redis_addr).await;
+    let config = maid::watcher::bili::Config {
+        watch: watch_room_ids,
+        notify: bili_event_notify_group,
+    };
+    maid::watcher::bili::spawn_watcher(config, bot, redis_conn);
+}
+
 async fn run() {
     let bot = Bot::from_env().auto_send();
 
@@ -79,6 +107,8 @@ async fn run() {
 
     #[cfg(feature = "osu")]
     setup_osu_watcher(bot.clone(), &redis_addr).await;
+
+    setup_bilibili_watcher(bot.clone(), &redis_addr).await;
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
