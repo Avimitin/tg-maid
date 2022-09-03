@@ -96,6 +96,10 @@ impl Patterns {
                 tailing = true
             }
 
+            if i < 1 {
+                return None;
+            }
+
             if !tailing && words[i - 1] != words[i + 1] {
                 return None;
             }
