@@ -98,7 +98,7 @@ impl BiliRoomQueryCache for ConnectionManager {
         let old_val: Option<u8> = self.get(&key).await?;
         self.set(&key, status).await?;
         if old_val.is_none() {
-            return Ok(255)
+            return Ok(255);
         }
         let old_val = old_val.unwrap();
         Ok(old_val)

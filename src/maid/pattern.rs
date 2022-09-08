@@ -80,24 +80,22 @@ impl Patterns {
         });
 
         rule!("不", |words, i| {
-            if words.len() - 1 < i {
+            if words.len() - 1 < i || i < 1 {
                 return None;
             }
 
             let mut tailing = false;
 
+            // if end with "不？"
             if let Some(last) = words.last() {
-                if ["?", "？"].contains(last) {
+                if ["?", "？"].contains(last) && words.len() - 2 == i {
                     tailing = true
                 }
             }
 
+            // if end with only ”不“ itself
             if !tailing && words.len() - 1 == i {
                 tailing = true
-            }
-
-            if i < 1 {
-                return None;
             }
 
             if !tailing && words[i - 1] != words[i + 1] {
