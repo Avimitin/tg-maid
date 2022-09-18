@@ -274,6 +274,8 @@ dependencies = [
 [[package]]
 name = "deepl"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "abb23074c3e68d09c1dad9adb7210b46d3d71a1d56f475541a6ea3a873161e5d"
 dependencies = [
  "anyhow",
  "reqwest",
