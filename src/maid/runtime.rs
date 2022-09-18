@@ -20,6 +20,7 @@ where
     pub cache: Arc<Mutex<CACHE>>,
     pub req: R,
     pub patterns: Arc<super::MsgPatternMatcher>,
+    pub translator: Arc<deepl::DeepLApi>,
 }
 
 /// Default implementation use memory to store
@@ -35,9 +36,10 @@ where
         + EhentaiProvider
         + CurrenciesRateProvider,
 {
-    pub fn new(cache: T, req: R) -> Self {
+    pub fn new(cache: T, req: R, tr: deepl::DeepLApi) -> Self {
         Self {
             req,
+            translator: Arc::new(tr),
             patterns: Arc::new(super::MsgPatternMatcher::generate()),
             cache: Arc::new(Mutex::new(cache)),
         }

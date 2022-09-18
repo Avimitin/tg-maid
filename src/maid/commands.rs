@@ -44,4 +44,10 @@ pub enum Command {
 
     #[command(description = "Get some useful id")]
     Id,
+
+    #[command(description = "Translate text by DeepL")]
+    Translate,
+
+    #[command(description = "Translate text by DeepL")]
+    Tr,
 }

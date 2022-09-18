@@ -84,6 +84,12 @@ async fn setup_bilibili_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
     maid::watcher::bili::spawn_watcher(config, bot, redis_conn);
 }
 
+fn setup_deepl_translator() -> deepl::DeepLApi {
+    let authkey =
+        std::env::var("DEEPL_API_KEY").unwrap_or_else(|_| panic!("no deepl auth key found"));
+    deepl::DeepLApi::new(&authkey)
+}
+
 async fn run() {
     let bot = Bot::from_env().auto_send();
 
@@ -93,7 +99,8 @@ async fn run() {
     let handler = maid::handler_schema();
     let status = dialogue::InMemStorage::<maid::DialogueStatus>::new();
     let fetcher = maid::Fetcher::new();
-    let runtime = maid::Runtime::new(redis_conn, fetcher);
+    let translator = setup_deepl_translator();
+    let runtime = maid::Runtime::new(redis_conn, fetcher, translator);
 
     maid::spawn_healthcheck_listner(
         std::env::var("HEALTHCHECK_PORT")

@@ -108,7 +108,9 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Eh                         -> eh_handler;
         Command::EhSeed                     -> eh_seed_handler;
         Command::Pacman                     -> pacman_handler;
-        Command::Id                         -> id_handler
+        Command::Id                         -> id_handler;
+        Command::Translate                  -> translate_handler;
+        Command::Tr                         -> translate_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -152,6 +154,75 @@ async fn id_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
     let chat_id = msg.chat.id;
 
     send!(msg, bot, format!("user id: {user_id}\nchat id: {chat_id}"));
+
+    Ok(())
+}
+
+async fn translate_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+    if msg.reply_to_message().is_none() {
+        send!(
+            msg,
+            bot,
+            r#"Usage: Reply to a text message and input
+    <code>/tr [source language(optional)] target-language</code>.
+Example:
+    /tr zh en"#,
+            html
+        );
+        return Ok(());
+    }
+
+    let text = msg.reply_to_message().unwrap().text();
+    if text.is_none() {
+        send!(msg, bot, "You should reply to text message");
+        return Ok(());
+    }
+    let text = text.unwrap();
+
+    let args = msg.text().unwrap().split(' ').skip(1).collect::<Vec<_>>();
+
+    if args.is_empty() {
+        send!(msg, bot, "You should at least give me one target language");
+        return Ok(());
+    }
+
+    let mut source_lang = None;
+    let target_lang;
+
+    macro_rules! parse {
+        ($str:expr) => {{
+            let lang = deepl::Lang::from(&$str.to_uppercase());
+            if lang.is_err() {
+                send!(msg, bot, format!("invalid language code {}", args[0]));
+                return Ok(());
+            }
+            lang.unwrap()
+        }};
+    }
+
+    if args.len() == 1 {
+        target_lang = parse!(args[0]);
+    } else {
+        source_lang = Some(parse!(args[0]));
+        target_lang = parse!(args[1]);
+    }
+
+    let tr_result = rt
+        .translator
+        .translate(text, source_lang, target_lang)
+        .await;
+
+    if let Err(err) = tr_result {
+        send!(msg, bot, format!("fail to translate: {err}"));
+    } else {
+        let response = tr_result.unwrap();
+        let full_text = response
+            .translations
+            .iter()
+            .map(|rp| rp.text.as_str())
+            .collect::<String>();
+        send!(msg, bot, full_text);
+    }
 
     Ok(())
 }
