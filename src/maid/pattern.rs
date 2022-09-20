@@ -1,4 +1,28 @@
+use regex::Regex;
 use std::collections::HashMap;
+
+lazy_static::lazy_static! {
+    pub static ref EAT_PATTEN: regex::Regex = Regex::new(r#"^[^/]*吃什么.*$"#).unwrap();
+}
+
+#[test]
+fn test_eat_pattern() {
+    let pending = vec![
+        "吃什么？",
+        "吃什么",
+        "今天吃什么",
+        "今天吃什么？",
+        "吃什么好呢？",
+        "今天吃什么好呢？",
+    ];
+
+    for (i, p) in pending.iter().enumerate() {
+        dbg!(i);
+        assert!(EAT_PATTEN.is_match(p));
+    }
+
+    assert!(!EAT_PATTEN.is_match("/吃什么"))
+}
 
 trait IntoRespond {
     fn to_respond(&self, cap: &regex::Captures) -> String;

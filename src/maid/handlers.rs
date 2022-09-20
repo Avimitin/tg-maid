@@ -140,6 +140,22 @@ async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
         bot.send_message(msg.chat.id, resp)
             .reply_to_message_id(msg.id)
             .await?;
+
+        return Ok(());
+    }
+
+    use modules::provider::RecipeProvider;
+
+    if msg.reply_to_message().is_none() && crate::maid::pattern::EAT_PATTEN.is_match(text) {
+        let recipe = rt.req.get_recipe().await;
+        if let Err(e) = recipe {
+            tracing::error!("fail to reply recipe: {e}");
+            return Ok(());
+        }
+        let recipe = recipe.unwrap();
+        send!(msg, bot, recipe);
+
+        return Ok(());
     }
 
     Ok(())
@@ -214,7 +230,11 @@ Example:
     }
     let current_usage = current_usage.unwrap();
     if current_usage.character_count > current_usage.character_limit / 3 {
-        send!(msg, bot, "API usage limit are met, this command is temporary unusable.");
+        send!(
+            msg,
+            bot,
+            "API usage limit are met, this command is temporary unusable."
+        );
         return Ok(());
     }
 
