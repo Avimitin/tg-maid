@@ -207,6 +207,17 @@ Example:
         target_lang = parse!(args[1]);
     }
 
+    let current_usage = rt.translator.get_usage().await;
+    if let Err(e) = current_usage {
+        send!(msg, bot, format!("fail to get current api usage: {e}"));
+        return Ok(());
+    }
+    let current_usage = current_usage.unwrap();
+    if current_usage.character_count > current_usage.character_limit / 3 {
+        send!(msg, bot, "API usage limit are met, this command is temporary unusable.");
+        return Ok(());
+    }
+
     let tr_result = rt
         .translator
         .translate(text, source_lang, target_lang)
