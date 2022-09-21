@@ -139,7 +139,7 @@ impl Patterns {
             let mut tails = words.iter().skip(i + 1);
             if let Some(s) = tails.next().and_then(|s| {
                 if s == &"吧" {
-                    Some(randomize!("还真是", "不是"))
+                    Some(randomize!("还真是", "那还真不是"))
                 } else {
                     None
                 }
