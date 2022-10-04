@@ -114,9 +114,9 @@ impl RecipeProvider for crate::maid::Fetcher {
                 Ok(v) => {
                     use rand::Rng;
                     let choice: usize = rand::thread_rng().gen_range(0..v.len());
-                    format!("今天吃{}", v[choice])
+                    format!("吃{}吧！", v[choice])
                 }
-                Err(_) => "今天不许吃饭！".to_string(),
+                Err(_) => "你不许吃了！".to_string(),
             }
         };
 
