@@ -144,19 +144,27 @@ impl UserEventHtmlExt {
 }
 
 async fn fetch_user_info(client: &reqwest::Client, token: &str, user: &str) -> Result<Response> {
-    let mut response = client
+    let response = client
         .get(USER_API_ENDPOINT)
         .query(&[("k", token), ("u", user)])
         .send()
-        .await?
-        .json::<Vec<Response>>()
         .await?;
+
+    if response.status() != reqwest::StatusCode::OK {
+        anyhow::bail!(
+            "fail to make request to osu API server, got status code {}. Response body: {:?}",
+            response.status(),
+            response.text().await
+        );
+    }
+
+    let mut response = response.json::<Vec<Response>>().await?;
 
     if response.is_empty() {
         anyhow::bail!("no user found")
     }
 
-    Ok(response.remove(0))
+    Ok(response.swap_remove(0))
 }
 
 #[tokio::test]
