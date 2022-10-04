@@ -120,6 +120,7 @@ async fn run() {
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![runtime, status])
         .enable_ctrlc_handler()
+        .default_handler(|_| async move { () })
         .build()
         .dispatch()
         .await;
