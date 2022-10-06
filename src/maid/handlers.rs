@@ -7,6 +7,12 @@ use teloxide::prelude::*;
 
 use crate::maid::Fetcher;
 
+use std::collections::HashMap;
+
+lazy_static::lazy_static! {
+    static ref LAST_AUTO_REPLY: std::sync::Arc<tokio::sync::Mutex<HashMap<i64, String>>> = std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+}
+
 /// Generate relation from command literal to their corresponding endpoint.
 ///
 /// # Form
@@ -128,6 +134,31 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(root)
 }
 
+async fn revert_last_auto_reply(msg: &Message) -> Option<&'static str> {
+    let rep = msg.reply_to_message()?;
+
+    let user = rep.from()?;
+    if !user.is_bot || user.id.0 != 5510628216 {
+        return None;
+    }
+    // handle revert if the reply user is our bot
+    let mut entry = LAST_AUTO_REPLY.lock().await;
+    // handle revert if we did send some message in this chat before
+    let last_reply = entry.get(&msg.chat.id.0)?;
+
+    let revert_reply = match last_reply.as_str() {
+        "是的" => "呃好吧，不是",
+        "不是" => "呃，是是是对对对",
+        "还真是" => "没有我乱说的",
+        "那还真不是" => "对的，还真是这样的",
+        _ => "呃，你要我想啥？",
+    };
+
+    entry.remove(&msg.chat.id.0);
+
+    Some(revert_reply)
+}
+
 async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
     let text = msg.text();
     if text.is_none() {
@@ -136,7 +167,19 @@ async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
     }
     let text = text.unwrap();
 
+    if text.contains("你再想想") {
+        if let Some(reverted) = revert_last_auto_reply(&msg).await {
+            send!(msg, bot, reverted);
+            return Ok(());
+        }
+    }
+
     if let Some(resp) = rt.patterns.try_match(text) {
+        {
+            let mut storage = LAST_AUTO_REPLY.lock().await;
+            storage.insert(msg.chat.id.0, resp.clone());
+        } // drop value to release the mutex
+
         bot.send_message(msg.chat.id, resp)
             .reply_to_message_id(msg.id)
             .await?;
