@@ -137,28 +137,37 @@ impl Patterns {
 
         rule!("是", |words, i| {
             let mut tails = words.iter().skip(i + 1);
-            if let Some(s) = tails.next().and_then(|s| {
+
+            let result = tails.clone().next().and_then(|s| {
                 if s == &"吧" {
                     Some(randomize!("还真是", "那还真不是"))
                 } else {
                     None
                 }
-            }) {
-                Some(s)
-            } else if tails.clone().any(|x| x == &"吗") {
-                Some(randomize!("是的", "不是"))
-            } else if let Some(j) = tails.position(|x| x == &"还是") {
-                if words.len() - 1 <= j {
-                    return None;
-                }
+            });
 
-                Some(randomize!(
-                    format!("是{}", words[i + 1..j].concat()),
-                    format!("是{}", words[j + 1..].concat())
-                ))
-            } else {
-                None
+            if result.is_some() {
+                return result;
             }
+
+            if tails.clone().any(|x| x == &"吗") {
+                return Some(randomize!("是的", "不是"));
+            }
+
+            if let Some(j) = tails.position(|x| x == &"还是") {
+                return {
+                    if words.len() - 1 <= j {
+                        None
+                    } else {
+                        Some(randomize!(
+                            format!("是{}", words[i + 1..j].concat()),
+                            format!("是{}", words[j + 1..].concat())
+                        ))
+                    }
+                };
+            }
+
+            None
         });
 
         Self {
