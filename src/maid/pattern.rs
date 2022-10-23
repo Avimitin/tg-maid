@@ -147,7 +147,7 @@ impl Patterns {
                 Some(s)
             } else if tails.clone().any(|x| x == &"吗") {
                 Some(randomize!("是的", "不是"))
-            } else if let Some(j) = words.iter().position(|x| x == &"还是") {
+            } else if let Some(j) = tails.position(|x| x == &"还是") {
                 if words.len() - 1 <= j {
                     return None;
                 }
