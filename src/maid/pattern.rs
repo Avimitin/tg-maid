@@ -74,14 +74,6 @@ impl Patterns {
         }
 
         macro_rules! randomize {
-            ($one:literal, $second:literal) => {
-                if rand::random() {
-                    String::from($one)
-                } else {
-                    String::from($second)
-                }
-            };
-
             ($a:expr, $b:expr) => {
                 if rand::random() {
                     $a.to_string()
