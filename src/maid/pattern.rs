@@ -73,7 +73,7 @@ impl Patterns {
             };
         }
 
-        macro_rules! randomize {
+        macro_rules! shuffle {
             ($a:expr, $b:expr) => {
                 if rand::random() {
                     $a.to_string()
@@ -82,6 +82,25 @@ impl Patterns {
                 }
             };
         }
+
+        rule!("吃", |words, i| {
+            let mut tails = words.iter().skip(i + 1);
+            if let Some(j) = tails.position(|x| *x == "还是") {
+                let mut choices = words
+                    .iter()
+                    .skip(i + 1)
+                    .take(j - i)
+                    .filter(|k| ![",", "，", " "].contains(*k))
+                    .copied()
+                    .collect::<Vec<_>>();
+                let last = tails.copied().collect::<String>();
+                choices.push(&last);
+                let selected = choices[rand::random::<usize>() % choices.len()].to_string();
+                return Some(selected);
+            }
+
+            None
+        });
 
         rule!("能", |words, i| {
             if words.len() - 1 < i {
@@ -92,7 +111,7 @@ impl Patterns {
                 .iter()
                 .skip(i + 1)
                 .find(|x| **x == "吗")
-                .map(|_| randomize!("能！", "不能！"))
+                .map(|_| shuffle!("能！", "不能！"))
         });
 
         rule!("不", |words, i| {
@@ -125,14 +144,14 @@ impl Patterns {
             }
         });
 
-        rule!("是不是", |_, _| { Some(randomize!("是的", "不是")) });
+        rule!("是不是", |_, _| { Some(shuffle!("是的", "不是")) });
 
         rule!("是", |words, i| {
             let mut tails = words.iter().skip(i + 1);
 
             let result = tails.clone().next().and_then(|s| match *s {
-                "吧" => Some(randomize!("还真是", "那还真不是")),
-                "吗" => Some(randomize!("是的", "不是")),
+                "吧" => Some(shuffle!("还真是", "那还真不是")),
+                "吗" => Some(shuffle!("是的", "不是")),
                 _ => None,
             });
 
@@ -145,7 +164,7 @@ impl Patterns {
                     if words.len() - 1 <= j {
                         None
                     } else {
-                        Some(randomize!(
+                        Some(shuffle!(
                             format!("是{}", words[i + 1..j].concat()),
                             format!("是{}", words[j + 1..].concat())
                         ))
@@ -203,4 +222,13 @@ fn test_match() {
     let repl = pat.try_match("是向左好还是向右好呢");
     assert!(repl.is_some());
     assert!(repl.unwrap().starts_with('是'));
+
+    let repl = pat.try_match("吃麦当劳，肯德基，还是必胜客");
+    assert!(repl.is_some());
+
+    let repl = pat.try_match("吃麦当劳 肯德基 还是必胜客");
+    assert!(repl.is_some());
+
+    let repl = pat.try_match("吃麦当劳，肯德基，还是必胜客");
+    assert!(repl.is_some());
 }
