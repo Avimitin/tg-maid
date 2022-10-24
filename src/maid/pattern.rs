@@ -130,20 +130,14 @@ impl Patterns {
         rule!("是", |words, i| {
             let mut tails = words.iter().skip(i + 1);
 
-            let result = tails.clone().next().and_then(|s| {
-                if s == &"吧" {
-                    Some(randomize!("还真是", "那还真不是"))
-                } else {
-                    None
-                }
+            let result = tails.clone().next().and_then(|s| match *s {
+                "吧" => Some(randomize!("还真是", "那还真不是")),
+                "吗" => Some(randomize!("是的", "不是")),
+                _ => None,
             });
 
             if result.is_some() {
                 return result;
-            }
-
-            if tails.clone().any(|x| x == &"吗") {
-                return Some(randomize!("是的", "不是"));
             }
 
             if let Some(j) = tails.position(|x| x == &"还是") {
