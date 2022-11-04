@@ -149,7 +149,7 @@ impl Patterns {
         rule!("是", |words, i| {
             let mut tails = words.iter().skip(i + 1);
 
-            let result = tails.clone().next().and_then(|s| match *s {
+            let result = tails.next().and_then(|s| match *s {
                 "吧" => Some(shuffle!("还真是", "那还真不是")),
                 "吗" => Some(shuffle!("是的", "不是")),
                 _ => None,
@@ -159,7 +159,7 @@ impl Patterns {
                 return result;
             }
 
-            if let Some(j) = tails.position(|x| x == &"还是") {
+            if let Some(j) = words.iter().position(|x| x == &"还是") {
                 return {
                     if words.len() - 1 <= j {
                         None
@@ -221,7 +221,9 @@ fn test_match() {
 
     let repl = pat.try_match("是向左好还是向右好呢");
     assert!(repl.is_some());
-    assert!(repl.unwrap().starts_with('是'));
+    let repl = repl.unwrap();
+    assert!(repl.starts_with('是'));
+    assert!(!repl.contains("还是"));
 
     let repl = pat.try_match("吃麦当劳，肯德基，还是必胜客");
     assert!(repl.is_some());
