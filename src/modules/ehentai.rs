@@ -71,6 +71,7 @@ pub struct EhGmetadata {
     #[serde(deserialize_with = "to_u32")]
     torrentcount: u32,
     torrents: Vec<EhTorrent>,
+    token: String,
     first_gid: Option<String>,
 }
 
@@ -115,6 +116,7 @@ impl std::fmt::Display for EhGmetadata {
 ⭐ Rating: {}
 🌱 Torrent Amount: {}
 🔖 Tags: {}
+🔗 Links: {}
 "#,
             self.title_jpn,
             self.category,
@@ -123,12 +125,9 @@ impl std::fmt::Display for EhGmetadata {
             self.torrentcount,
             self.tags.iter().fold(String::new(), |acc, x| format!(
                 "{acc} #{}",
-                x.split(':')
-                    .nth(1)
-                    .unwrap()
-                    .replace(' ', "_")
-                    .replace('-', "_")
-            ))
+                x.split(':').nth(1).unwrap().replace([' ', '-'], "_")
+            )),
+            format_args!("https://e-hentai.org/g/{}/{}/", self.gid, self.token),
         )
     }
 }
