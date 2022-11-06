@@ -84,22 +84,16 @@ impl Patterns {
         }
 
         rule!("吃", |words, i| {
-            let mut tails = words.iter().skip(i + 1);
-            if let Some(j) = tails.position(|x| *x == "还是") {
-                let mut choices = words
-                    .iter()
-                    .skip(i + 1)
-                    .take(j - i)
-                    .filter(|k| ![",", "，", " "].contains(*k))
-                    .copied()
-                    .collect::<Vec<_>>();
-                let last = tails.copied().collect::<String>();
-                choices.push(&last);
-                let selected = choices[rand::random::<usize>() % choices.len()].to_string();
-                return Some(selected);
+            if words.len() - 1 < i {
+                return None;
             }
 
-            None
+            let mut choices: Vec<_> = words[i + 1..]
+                .split(|w| [",", "，", " ", "还是"].contains(w))
+                .filter(|slice| !slice.is_empty())
+                .collect();
+            let selected = choices.swap_remove(rand::random::<usize>() % choices.len());
+            Some(selected.concat())
         });
 
         rule!("能", |words, i| {
@@ -209,15 +203,15 @@ fn test_match() {
 
     let repl = pat.try_match("到底买不买新手机呢");
     assert!(repl.is_some());
-    assert!(repl.unwrap().contains(&"买"));
+    assert!(repl.unwrap().contains('买'));
 
     let repl = pat.try_match("吃饭不？");
     assert!(repl.is_some());
-    assert!(repl.unwrap().contains(&"吃饭"));
+    assert!(repl.unwrap().contains("吃饭"));
 
     let repl = pat.try_match("资磁不资磁？");
     assert!(repl.is_some());
-    assert!(repl.unwrap().contains(&"资磁"));
+    assert!(repl.unwrap().contains("资磁"));
 
     let repl = pat.try_match("是向左好还是向右好呢");
     assert!(repl.is_some());
@@ -225,12 +219,28 @@ fn test_match() {
     assert!(repl.starts_with('是'));
     assert!(!repl.contains("还是"));
 
+    let expect = ["麦当劳", "肯德基", "必胜客"];
     let repl = pat.try_match("吃麦当劳，肯德基，还是必胜客");
     assert!(repl.is_some());
+    let repl = repl.unwrap();
+    dbg!(&repl);
+    assert!(expect.contains(&repl.as_str()));
 
     let repl = pat.try_match("吃麦当劳 肯德基 还是必胜客");
     assert!(repl.is_some());
+    let repl = repl.unwrap();
+    dbg!(&repl);
+    assert!(expect.contains(&repl.as_str()));
 
     let repl = pat.try_match("吃麦当劳，肯德基，还是必胜客");
     assert!(repl.is_some());
+    let repl = repl.unwrap();
+    dbg!(&repl);
+    assert!(expect.contains(&repl.as_str()));
+
+    let repl = pat.try_match("纠结吃麻辣香锅还是热干面");
+    assert!(repl.is_some());
+    let repl = repl.unwrap();
+    dbg!(&repl);
+    assert!(["麻辣香锅", "热干面"].contains(&repl.as_str()));
 }
