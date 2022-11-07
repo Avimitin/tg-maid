@@ -84,7 +84,11 @@ impl Patterns {
         }
 
         rule!("吃", |words, i| {
-            if words.len() - 1 < i {
+            if words.len() - 1 <= i {
+                return None;
+            }
+            let Some(j) = words.iter().position(|w| w == &"还是") else { return None; };
+            if words.len() - 1 <= j {
                 return None;
             }
 
