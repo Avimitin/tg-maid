@@ -117,12 +117,12 @@ async fn mainloop(
 }
 
 struct Runtime {
-    bot: AutoSend<Bot>,
+    bot: Bot,
     c: reqwest::Client,
     cfg: Config,
 }
 
-pub fn spawn(bot: AutoSend<Bot>, cfg: Config) {
+pub fn spawn(bot: Bot, cfg: Config) {
     let heartbeat = tokio::time::interval(cfg.period);
     let (tx, rx) = tokio::sync::watch::channel::<u8>(1);
 

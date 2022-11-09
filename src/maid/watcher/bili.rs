@@ -10,7 +10,7 @@ const ENDPOINT: &str = "https://api.live.bilibili.com/room/v1/Room/get_status_in
 
 struct Runtime<T: BiliRoomQueryCache> {
     c: reqwest::Client,
-    b: AutoSend<Bot>,
+    b: Bot,
     cfg: Config,
     cache: Mutex<T>,
 }
@@ -129,7 +129,7 @@ async fn watch_and_response<T: BiliRoomQueryCache>(rt: Arc<Runtime<T>>) {
     }
 }
 
-pub fn spawn_watcher<C: BiliRoomQueryCache + 'static>(cfg: Config, b: AutoSend<Bot>, cache: C) {
+pub fn spawn_watcher<C: BiliRoomQueryCache + 'static>(cfg: Config, b: Bot, cache: C) {
     let (tx, rx) = tokio::sync::watch::channel(1_u8);
     let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(60));
     let rt = Arc::new(Runtime {

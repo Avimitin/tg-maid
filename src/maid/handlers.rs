@@ -36,14 +36,14 @@ macro_rules! generate_commands {
     }
 }
 
-/// A AutoSend<Bot> method wrapper. It can help reduce the code base.
+/// A Bot method wrapper. It can help reduce the code base.
 ///
 /// Rules:
-///    * send(Message, AutoSend<Bot>, &'static str): Send text message
-///    * send(Message, AutoSend<Bot>, &'static str, html): Send text message in Html format
-///    * send(Message, AutoSend<Bot>, {{ expression }}): Send text message, text generate from
+///    * send(Message, Bot, &'static str): Send text message
+///    * send(Message, Bot, &'static str, html): Send text message in Html format
+///    * send(Message, Bot, {{ expression }}): Send text message, text generate from
 ///    expression
-///    * send(@<Action>, Message, AutoSend<Bot>): Send chat action
+///    * send(@<Action>, Message, Bot): Send chat action
 macro_rules! send {
     ($msg:ident, $bot:ident, $text:literal) => {
         $bot.send_message($msg.chat.id, $text).await?
@@ -159,7 +159,7 @@ async fn revert_last_auto_reply(msg: &Message) -> Option<&'static str> {
     Some(revert_reply)
 }
 
-async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn message_filter(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     let text = msg.text();
     if text.is_none() {
         // silently exit
@@ -204,7 +204,7 @@ async fn message_filter(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
     Ok(())
 }
 
-async fn id_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
+async fn id_handler(msg: Message, bot: Bot) -> Result<()> {
     let user_id = if let Some(reply) = msg.reply_to_message() {
         reply.from().map_or(0, |user| user.id.0)
     } else {
@@ -217,7 +217,7 @@ async fn id_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
     Ok(())
 }
 
-async fn translate_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn translate_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     if msg.reply_to_message().is_none() {
         send!(
             msg,
@@ -302,7 +302,7 @@ Example:
 }
 
 /// handler for /pacman command
-async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn pacman_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     let mut text = msg.text().unwrap().split(' ');
     // shift one
     text.next();
@@ -379,7 +379,7 @@ async fn pacman_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result
 }
 
 /// handler for /hitksyx command
-async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn ksyx_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     let mut conn = rt.cache.lock().await;
     use modules::cache::KsyxCounterCache;
     let old_v = conn.hit().await;
@@ -409,7 +409,7 @@ async fn ksyx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<(
 }
 
 /// helper function for parsing the ehentai link
-async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[String; 2]>> {
+async fn parse_eh_gidlist(msg: &Message, bot: &Bot) -> Result<Vec<[String; 2]>> {
     send!(@UploadPhoto; msg, bot);
 
     let text = msg.text().unwrap();
@@ -454,7 +454,7 @@ async fn parse_eh_gidlist(msg: &Message, bot: &AutoSend<Bot>) -> Result<Vec<[Str
 }
 
 /// handler for the /eh command
-async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn eh_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     use modules::provider::EhentaiProvider;
     let gid_list = parse_eh_gidlist(&msg, &bot).await?;
     let response = rt.req.fetch_ehentai_comic_data(&gid_list).await;
@@ -483,7 +483,7 @@ async fn eh_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()>
 }
 
 /// handler for the /ehseed command
-async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn eh_seed_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     let gid_list = parse_eh_gidlist(&msg, &bot).await?;
 
     use modules::provider::EhentaiProvider;
@@ -511,7 +511,7 @@ async fn eh_seed_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Resul
 }
 
 /// handler for the /mjx command
-async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn mjx_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     use modules::provider::NsfwProvider;
     send!(@UploadPhoto; msg, bot);
 
@@ -529,7 +529,7 @@ async fn mjx_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()
 }
 
 /// handler for the /cookpiggy command
-async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn cook_piggy_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     use modules::provider::RecipeProvider;
 
     let recipe = rt.req.get_pig_recipe().await;
@@ -544,7 +544,7 @@ async fn cook_piggy_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Re
 }
 
 /// handler for the /ghs command
-async fn ghs_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn ghs_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     use modules::provider::NsfwProvider;
 
     send!(@UploadPhoto; msg, bot);
@@ -565,7 +565,7 @@ async fn ghs_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()
 }
 
 /// handler for the collect command
-async fn collect_handler(msg: Message, bot: AutoSend<Bot>, dialogue: Dialogue) -> Result<()> {
+async fn collect_handler(msg: Message, bot: Bot, dialogue: Dialogue) -> Result<()> {
     send!(
         msg,
         bot,
@@ -620,7 +620,7 @@ async fn collect_message(msg: Message, rt: RedisRT) -> Result<()> {
 /// handler for /collectdone command
 async fn exit_collect_handler(
     msg: Message,
-    bot: AutoSend<Bot>,
+    bot: Bot,
     dialogue: Dialogue,
     rt: RedisRT,
 ) -> Result<()> {
@@ -704,7 +704,7 @@ Date: {}
 /// handler for /exchange command
 async fn exchange_handler(
     msg: Message,
-    bot: AutoSend<Bot>,
+    bot: Bot,
     rt: RedisRT,
     payload: (f64, String, String),
 ) -> Result<()> {
@@ -732,7 +732,7 @@ async fn exchange_handler(
     Ok(())
 }
 
-async fn help_handler(msg: Message, bot: AutoSend<Bot>) -> Result<()> {
+async fn help_handler(msg: Message, bot: Bot) -> Result<()> {
     use super::Command;
     use teloxide::utils::command::BotCommands;
     bot.send_message(msg.chat.id, Command::descriptions().to_string())
@@ -753,7 +753,7 @@ async fn get_weather(msg: Message, rt: RedisRT) -> Result<String> {
 }
 
 /// command for /weather command
-async fn weather_handler(msg: Message, bot: AutoSend<Bot>, rt: RedisRT) -> Result<()> {
+async fn weather_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     let chat_id = msg.chat.id;
     send!(@Typing; msg, bot);
 

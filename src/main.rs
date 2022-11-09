@@ -13,7 +13,7 @@ async fn connect_redis(addr: &str) -> redis::aio::ConnectionManager {
 }
 
 #[cfg(feature = "weibo")]
-fn setup_weibo_watcher(bot: AutoSend<Bot>) {
+fn setup_weibo_watcher(bot: Bot) {
     let allow_weibo_watcher_groups = std::env::var("WEIBO_NOTIFY_GROUPS")
         .unwrap_or_else(|_| panic!("no notify group specify"))
         .split(',')
@@ -32,7 +32,7 @@ fn setup_weibo_watcher(bot: AutoSend<Bot>) {
 }
 
 #[cfg(feature = "osu")]
-async fn setup_osu_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
+async fn setup_osu_watcher(bot: Bot, redis_addr: &str) {
     let register_osu_account = std::env::var("REGISTER_OSU_ACCOUNT")
         .unwrap_or_else(|_| panic!("no osu account was given"))
         .split(',')
@@ -56,7 +56,7 @@ async fn setup_osu_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
     maid::watcher::osu::spawn_watcher(settings, bot, redis_conn);
 }
 
-async fn setup_bilibili_watcher(bot: AutoSend<Bot>, redis_addr: &str) {
+async fn setup_bilibili_watcher(bot: Bot, redis_addr: &str) {
     let bili_event_notify_group = std::env::var("BILI_NOTIFY_GROUP")
         .unwrap_or_else(|_| panic!("You must at least give one group id for notify"))
         .split(',')
@@ -91,7 +91,7 @@ fn setup_deepl_translator() -> deepl::DeepLApi {
 }
 
 async fn run() {
-    let bot = Bot::from_env().auto_send();
+    let bot = Bot::from_env();
 
     let redis_addr = std::env::var("REDIS_ADDR")
         .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`.");

@@ -1169,18 +1169,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.11"
+version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78203e83c48cffbe01e4a2d35d566ca4de445d79a85372fc64e378bfc812a260"
+checksum = "ad29a609b6bcd67fee905812e544992d216af9d755757c05ed2d0e15a74c6ecc"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.11"
+version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "710faf75e1b33345361201d36d04e98ac1ed8909151a017ed384700836104c74"
+checksum = "069bdb1e05adc7a8990dce9cc75370895fbe4e3d58b9b73bf1aee56359344a55"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1804,9 +1804,9 @@ checksum = "20f34339676cdcab560c9a82300c4c2581f68b9369aedf0fae86f2ff9565ff3e"
 
 [[package]]
 name = "teloxide"
-version = "0.10.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d70ecd3284223a1f43e98aaf2dfc80b7da30cb1c881932f6679e8b0756eed44"
+checksum = "94734a391eb4f3b6172b285fc10593192f9bdb4c8a377075cff063d967f0e43b"
 dependencies = [
  "aquamarine",
  "bytes",
@@ -1830,9 +1830,9 @@ dependencies = [
 
 [[package]]
 name = "teloxide-core"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae0e8df1cb0387cccab019e9c1243ac9a7646ef75fac767644ceb1e6a6ddc5bc"
+checksum = "9243a720aa9bddda324a7f90b4ab42887425524bf4d5d24a56b50bccb984b7c4"
 dependencies = [
  "bitflags",
  "bytes",
@@ -1861,9 +1861,9 @@ dependencies = [
 
 [[package]]
 name = "teloxide-macros"
-version = "0.6.3"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d1f9fc42b44919d45dfcf8992d12e3df2a0d109431d2a15110d76fd3701a19"
+checksum = "40a5fc46d9004706ee23e3b73a0f53518f28498f7297813fa9a505a29638ffd6"
 dependencies = [
  "heck",
  "proc-macro2",
