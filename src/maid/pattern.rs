@@ -139,7 +139,7 @@ impl Patterns {
                  else { return None };
 
             if next_word == &"不买" {
-                Some(shuffle!("能！", "不能！"))
+                Some(shuffle!("买！", "不买！"))
             } else {
                 None
             }
