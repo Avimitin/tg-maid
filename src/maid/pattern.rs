@@ -100,6 +100,23 @@ impl Patterns {
             Some(selected.concat())
         });
 
+        rule!("喝", |words, i| {
+            if words.len() - 1 <= i {
+                return None;
+            }
+            let Some(j) = words.iter().position(|w| w == &"还是") else { return None; };
+            if words.len() - 1 <= j {
+                return None;
+            }
+
+            let mut choices: Vec<_> = words[i + 1..]
+                .split(|w| [",", "，", " ", "还是"].contains(w))
+                .filter(|slice| !slice.is_empty())
+                .collect();
+            let selected = choices.swap_remove(rand::random::<usize>() % choices.len());
+            Some(selected.concat())
+        });
+
         rule!("能", |words, i| {
             if words.len() - 1 < i {
                 return None;
@@ -110,6 +127,22 @@ impl Patterns {
                 .skip(i + 1)
                 .find(|x| **x == "吗")
                 .map(|_| shuffle!("能！", "不能！"))
+        });
+
+        rule!("买", |words, i| {
+            if words.len() - 1 <= i {
+                return None;
+            }
+
+            let Some(next_word) = words
+                .get(i + 1)
+                 else { return None };
+
+            if next_word == &"不买" {
+                Some(shuffle!("能！", "不能！"))
+            } else {
+                None
+            }
         });
 
         rule!("不", |words, i| {
