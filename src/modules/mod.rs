@@ -4,6 +4,7 @@ mod currency;
 mod ehentai;
 mod ksyx;
 mod nsfw;
+mod osu;
 mod piggy;
 mod weather;
 
