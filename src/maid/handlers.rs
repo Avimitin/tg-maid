@@ -471,6 +471,7 @@ async fn eh_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
                 teloxide::types::InputFile::url(metadata.thumb.clone()),
             )
             .caption(format!("{metadata}"))
+            .has_spoiler(true)
             .await?;
         }
         Err(error) => {
@@ -556,6 +557,7 @@ async fn ghs_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
             bot.send_photo(msg.chat.id, teloxide::types::InputFile::url(image_link))
                 .parse_mode(teloxide::types::ParseMode::Html)
                 .caption(image_info)
+                .has_spoiler(true)
                 .await?
         }
         Err(e) => bot.send_message(msg.chat.id, e.to_string()).await?,
