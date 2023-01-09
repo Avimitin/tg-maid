@@ -190,13 +190,14 @@ async fn message_filter(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     use modules::provider::RecipeProvider;
 
     if msg.reply_to_message().is_none() && crate::maid::pattern::EAT_PATTEN.is_match(text) {
+        let msg = send!(msg, bot, "让我想想哈。。别急");
         let recipe = rt.req.get_recipe().await;
         if let Err(e) = recipe {
             tracing::error!("fail to reply recipe: {e}");
             return Ok(());
         }
         let recipe = recipe.unwrap();
-        send!(msg, bot, recipe);
+        bot.edit_message_text(msg.chat.id, msg.id, recipe).await?;
 
         return Ok(());
     }
