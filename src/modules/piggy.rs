@@ -29,25 +29,17 @@ fn collect_pig_recipe(page: &str) -> Result<Vec<String>> {
 
 fn collect_recipe(page: &str) -> Result<Vec<String>> {
     let page = Html::parse_fragment(page);
-    let recipes = Selector::parse(".detail").unwrap();
-    let recipe_title = Selector::parse("h2").unwrap();
+    let recipes = Selector::parse(".detail h2").unwrap();
     let recipes = page
         .select(&recipes)
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("Fail to select recipe"))?;
+        .filter_map(|rec| rec.text().next().map(|s| s.to_string()))
+        .collect::<Vec<_>>();
 
-    let mut v = Vec::new();
-    for elem in recipes.select(&recipe_title) {
-        if let Some(text) = elem.text().next() {
-            v.push(text.to_string());
-        }
-    }
-
-    if v.is_empty() {
+    if recipes.is_empty() {
         anyhow::bail!("Can not find any recipe")
     }
 
-    Ok(v)
+    Ok(recipes)
 }
 
 #[tokio::test]
@@ -100,7 +92,7 @@ impl RecipeProvider for crate::maid::Fetcher {
     }
 
     async fn get_recipe(&self) -> Self::Result {
-        let page: u32 = rand::random::<u32>() % 1000;
+        let page: u32 = rand::thread_rng().gen_range(0..=100);
         let url = reqwest::Url::parse(&format!(
             "https://home.meishichina.com/recipe-list-page-{}.html",
             page
@@ -112,7 +104,6 @@ impl RecipeProvider for crate::maid::Fetcher {
             let res = collect_recipe(&page);
             match res {
                 Ok(v) => {
-                    use rand::Rng;
                     let choice: usize = rand::thread_rng().gen_range(0..v.len());
                     format!("吃{}吧！", v[choice])
                 }
