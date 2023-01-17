@@ -1,7 +1,10 @@
 use teloxide::utils::command::BotCommands;
 
 #[derive(BotCommands, Clone, Debug)]
-#[command(rename_rule = "lowercase", description = "These commands are supported:")]
+#[command(
+    rename_rule = "lowercase",
+    description = "These commands are supported:"
+)]
 pub enum Command {
     #[command(description = "Display this help message")]
     Help,
@@ -50,4 +53,10 @@ pub enum Command {
 
     #[command(description = "Translate text by DeepL")]
     Tr,
+
+    #[command(description = "Calculate the sex compatibility")]
+    CanISexWith,
+
+    #[command(description = "Calculate the sex compatibility")]
+    Cisw,
 }

@@ -1,6 +1,7 @@
 use super::runtime::Runtime;
 use crate::modules;
 use anyhow::Result;
+use rand::{Rng, SeedableRng};
 use teloxide::dispatching::{dialogue, UpdateHandler};
 use teloxide::payloads::SendPhotoSetters;
 use teloxide::prelude::*;
@@ -116,7 +117,9 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Pacman                     -> pacman_handler;
         Command::Id                         -> id_handler;
         Command::Translate                  -> translate_handler;
-        Command::Tr                         -> translate_handler
+        Command::Tr                         -> translate_handler;
+        Command::CanISexWith                -> can_i_sex_with_xx_handler;
+        Command::Cisw                       -> can_i_sex_with_xx_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -215,6 +218,46 @@ async fn id_handler(msg: Message, bot: Bot) -> Result<()> {
 
     send!(msg, bot, format!("user id: {user_id}\nchat id: {chat_id}"));
 
+    Ok(())
+}
+
+async fn can_i_sex_with_xx_handler(msg: Message, bot: Bot) -> Result<()> {
+    if msg.reply_to_message().is_none() {
+        send!(msg, bot, "你需要回复你想使用命令的对象");
+        return Ok(());
+    }
+    let reply_to_msg = msg.reply_to_message().unwrap();
+    // we can ensure that command must came from a user
+    let user_a = msg.from().unwrap();
+    // we can't guarantee that command is reply to a user
+    let Some(user_b) = reply_to_msg.from() else {
+        send!(msg, bot, "你回复的对象必须是一名用户");
+        return Ok(())
+    };
+    // date takes 10 bytes
+    let today = chrono::Utc::now();
+    let mut seed = format!(
+        "{}{}{}",
+        today.date_naive(),
+        user_a.first_name,
+        user_b.first_name
+    );
+    if seed.len() < 32 {
+        seed.push_str(&("1".repeat(32 - seed.len())));
+    }
+    let seed = seed.as_bytes().to_vec();
+    let mut rng = rand::prelude::StdRng::from_seed((&seed[0..32]).try_into().unwrap());
+    let percentage: f32 = rng.gen();
+
+    send!(
+        msg,
+        bot,
+        format!(
+            "今天你和 {} 的性爱匹配度为：{:.2}%",
+            user_b.first_name,
+            percentage * 100.0
+        )
+    );
     Ok(())
 }
 
@@ -393,7 +436,7 @@ async fn ksyx_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
     let action = &[
         "爱抚", "中出", "暴打", "后入", "膜", "贴贴", "狂踹", "寸止", "绳缚",
     ];
-    use rand::Rng;
+
     let choice = rand::thread_rng().gen_range(0..action.len());
     bot.send_message(
         msg.chat.id,
