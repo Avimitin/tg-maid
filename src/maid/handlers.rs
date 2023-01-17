@@ -249,13 +249,26 @@ async fn can_i_sex_with_xx_handler(msg: Message, bot: Bot) -> Result<()> {
     let mut rng = rand::prelude::StdRng::from_seed((&seed[0..32]).try_into().unwrap());
     let percentage: f32 = rng.gen();
 
+    let hint = if percentage < 0.2 {
+        "不要当舔狗了，他不会和你上床的"
+    } else if percentage < 0.4 {
+        "多聊聊，培养培养感情"
+    } else if percentage < 0.6 {
+        "快约出来提♂升♂好♂感♂"
+    } else if percentage < 0.8 {
+        "不要再等了，今晚就上床！"
+    } else {
+        "两位要注意身体，不要纵欲过度了~~"
+    };
+
     send!(
         msg,
         bot,
         format!(
-            "今天你和 {} 的性爱匹配度为：{:.2}%",
+            "今天你和 {} 的性爱匹配度为：{:.2}%，{}",
             user_b.first_name,
-            percentage * 100.0
+            percentage * 100.0,
+            hint
         )
     );
     Ok(())
