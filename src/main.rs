@@ -87,7 +87,7 @@ async fn setup_bilibili_watcher(bot: Bot, redis_addr: &str) {
 fn setup_deepl_translator() -> deepl::DeepLApi {
     let authkey =
         std::env::var("DEEPL_API_KEY").unwrap_or_else(|_| panic!("no deepl auth key found"));
-    deepl::DeepLApi::new(&authkey)
+    deepl::DeepLApi::new(&authkey, false)
 }
 
 async fn run() {
