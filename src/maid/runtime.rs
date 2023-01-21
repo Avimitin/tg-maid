@@ -1,7 +1,5 @@
 use crate::modules::{cache::*, provider::*};
 use std::sync::Arc;
-// FIXME: This mutex locker is not suggested to be used
-// But vaultwarden used it in their projects.
 use tokio::sync::Mutex;
 
 #[derive(Clone, Debug)]
@@ -19,7 +17,6 @@ where
 {
     pub cache: Arc<Mutex<CACHE>>,
     pub req: R,
-    pub patterns: Arc<super::MsgPatternMatcher>,
     pub translator: Arc<deepl::DeepLApi>,
 }
 
@@ -40,7 +37,6 @@ where
         Self {
             req,
             translator: Arc::new(tr),
-            patterns: Arc::new(super::MsgPatternMatcher::generate()),
             cache: Arc::new(Mutex::new(cache)),
         }
     }
