@@ -1,7 +1,7 @@
 FROM rust:latest AS build-env
 WORKDIR /src/butler
 COPY . /src/butler
-RUN cargo build --release
+RUN cargo build --release --features osu
 
 FROM debian:bullseye-slim
 COPY --from=build-env /src/butler/target/release/rusty-maid /bin/maid
