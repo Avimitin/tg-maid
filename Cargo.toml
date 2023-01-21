@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-teloxide = { version = "0.11.3", features = ["macros", "auto-send"] }
+teloxide = { version = "0.12.0", features = ["macros", "auto-send"] }
 tokio = { version = "1.20.0", features = ["full"] }
 dotenv = "0.15.0"
 anyhow = "1.0.58"
@@ -24,13 +24,11 @@ scraper = "0.13.0"
 regex = "1.6.0"
 paste = "1.0.7"
 jieba-rs = "0.6.6"
-deepl = "0.1.2"
+deepl = "0.3.0"
 typed-builder = "0.11.0"
 
 [features]
-default = ["osu"]
+default = []
 weibo = []
 osu = []
-
-[patch.crates-io]
-teloxide-core = { git = "https://github.com/Avimitin/teloxide-core", branch = "master" }
+pattern-reply = []
