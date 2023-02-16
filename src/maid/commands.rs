@@ -59,4 +59,10 @@ pub enum Command {
 
     #[command(description = "Calculate the sex compatibility")]
     Cisw,
+
+    #[command(description = "Get last score replay")]
+    Rep,
+
+    #[command(description = "Bind you osu! account")]
+    Obind,
 }

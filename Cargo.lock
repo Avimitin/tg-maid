@@ -1010,6 +1010,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "osu-api"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45fa56b600dd549a111deaea737647020cb21162265bcc033094a553ff097ef1"
+dependencies = [
+ "async-trait",
+ "bitflags",
+ "chrono",
+ "paste",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "typed-builder",
+]
+
+[[package]]
 name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1485,6 +1503,7 @@ dependencies = [
  "dotenv",
  "jieba-rs",
  "lazy_static",
+ "osu-api",
  "paste",
  "rand 0.8.5",
  "redis",

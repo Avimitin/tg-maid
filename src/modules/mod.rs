@@ -4,6 +4,7 @@ mod currency;
 mod ehentai;
 mod ksyx;
 mod nsfw;
+mod osu;
 mod piggy;
 mod weather;
 
@@ -18,6 +19,7 @@ pub mod provider {
 pub mod cache {
     pub use super::{
         collect::CollectedMsgCache, currency::CurrenciesCache, ksyx::KsyxCounterCache,
+        osu::OsuLocalStorage,
     };
 }
 

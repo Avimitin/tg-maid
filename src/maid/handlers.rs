@@ -10,6 +10,7 @@ use teloxide::prelude::*;
 
 lazy_static::lazy_static! {
     pub static ref EAT_PATTEN: regex::Regex = Regex::new(r#"^[^/]*吃什么.*$"#).unwrap();
+    pub static ref OSU_API_KEY: String = std::env::var("OSU_API_KEY").expect("no `OSU_API_KEY` given");
 }
 
 use crate::maid::Fetcher;
@@ -119,7 +120,9 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         Command::Translate                  -> translate_handler;
         Command::Tr                         -> translate_handler;
         Command::CanISexWith                -> can_i_sex_with_xx_handler;
-        Command::Cisw                       -> can_i_sex_with_xx_handler
+        Command::Cisw                       -> can_i_sex_with_xx_handler;
+        Command::Rep                        -> osu_replay_handler;
+        Command::Obind                      -> obind_handler
     };
 
     let stateful_cmd_handler = teloxide::filter_command::<Command, _>()
@@ -160,6 +163,102 @@ async fn message_filter(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
         return Ok(());
     }
 
+    Ok(())
+}
+
+async fn osu_replay_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
+    use crate::modules::cache::OsuLocalStorage;
+
+    let command: Vec<_> = msg.text().unwrap().split(" ").collect();
+    if command.len() == 1 {}
+
+    // commands must came from a user
+    let user = msg.from().unwrap();
+    let mut cache = rt.cache.lock().await;
+    let result = cache.get_user_osu_id(user.id.0).await?;
+    drop(cache); // we got a lot more work to do, release the lock immediately would help
+
+    let Some(osu_id) = result else {
+        send!(msg, bot, "You don't bind your osu account to this telegram account,
+please use /obind osu_id to register");
+        return Ok(())
+    };
+
+    let latest_score =
+        osu_api::util::v1::get_user_latest_replay(&rt.req, &OSU_API_KEY, osu_id).await;
+    if let Err(err) = latest_score {
+        send!(
+            msg,
+            bot,
+            format!("fail to get latest replay:\n\n<code>{err}</code>"),
+            html
+        );
+        return Ok(());
+    }
+    let latest_score = latest_score.unwrap();
+
+    let replay_info = format!(
+        r#"<b>Song</b>: {song}
+
+<b>Score Infomation</b>:
+<b>Rank</b>: {rank} | <b>Max Combo</b>: {max_combo}
+<b>300</b>: {perfect} | <b>100</b>: {great} | <b>50</b>: {good} | <b>miss</b>: {miss}
+
+<b>Beatmap Infomation</b>:
+<b>Stars</b>: {stars}
+<b>CS</b>: {cs} | <b>OD</b>: {od} | <b>AR</b>: {ar} | <b>HP</b>: {hp}
+<b>Mods</b>: {mods:?}
+    "#,
+        song = latest_score.beatmap.title,
+        rank = latest_score.score.rank,
+        max_combo = latest_score.score.maxcombo,
+        perfect = latest_score.score.count300,
+        great = latest_score.score.count100,
+        good = latest_score.score.count50,
+        miss = latest_score.score.countmiss,
+        stars = latest_score.beatmap.difficultyrating,
+        cs = latest_score.beatmap.diff_size,
+        od = latest_score.beatmap.diff_overall,
+        ar = latest_score.beatmap.diff_approach,
+        hp = latest_score.beatmap.diff_drain,
+        mods = latest_score.score.enabled_mods,
+    );
+
+    let url = osu_api::util::v1::gen_beatmap_cover_img_url(latest_score.beatmap.beatmapset_id);
+
+    bot.send_photo(msg.chat.id, teloxide::types::InputFile::url(url))
+        .caption(replay_info)
+        .parse_mode(teloxide::types::ParseMode::Html)
+        .await?;
+    Ok(())
+}
+
+async fn obind_handler(msg: Message, bot: Bot, rt: RedisRT) -> Result<()> {
+    let mut cache = rt.cache.lock().await;
+    use crate::modules::cache::OsuLocalStorage;
+    let command: Vec<_> = msg.text().unwrap().split(" ").collect();
+    if command.len() < 2 {
+        send!(msg, bot, "Please provide your Osu ID");
+        return Ok(());
+    }
+    let parsed = command[1].parse::<u64>();
+    if parsed.is_err() {
+        send!(msg, bot, "Invalid osu id!");
+        return Ok(());
+    }
+    let result = cache
+        .register(msg.from().unwrap().id.0, parsed.unwrap())
+        .await;
+    if let Err(err) = result {
+        send!(
+            msg,
+            bot,
+            format!("fail to register:\n\n<code>{err}</code>"),
+            html
+        );
+    }
+
+    send!(msg, bot, "Binded");
     Ok(())
 }
 

@@ -1,11 +1,12 @@
 use crate::modules::{cache::*, provider::*};
+use osu_api::api::OsuApiRequester;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Runtime<CACHE, R>
 where
-    CACHE: CurrenciesCache + CollectedMsgCache + KsyxCounterCache,
+    CACHE: CurrenciesCache + CollectedMsgCache + KsyxCounterCache + OsuLocalStorage,
     R: Send
         + Sync
         + NsfwProvider
@@ -13,6 +14,7 @@ where
         + WeatherProvider
         + RecipeProvider
         + EhentaiProvider
+        + OsuApiRequester
         + CurrenciesRateProvider,
 {
     pub cache: Arc<Mutex<CACHE>>,
@@ -23,7 +25,7 @@ where
 /// Default implementation use memory to store
 impl<T, R> Runtime<T, R>
 where
-    T: CurrenciesCache + CollectedMsgCache + KsyxCounterCache,
+    T: CurrenciesCache + CollectedMsgCache + KsyxCounterCache + OsuLocalStorage,
     R: Send
         + Sync
         + NsfwProvider
@@ -31,6 +33,7 @@ where
         + WeatherProvider
         + RecipeProvider
         + EhentaiProvider
+        + OsuApiRequester
         + CurrenciesRateProvider,
 {
     pub fn new(cache: T, req: R, tr: deepl::DeepLApi) -> Self {
