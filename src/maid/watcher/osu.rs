@@ -8,6 +8,7 @@ use anyhow::Result;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use teloxide::prelude::*;
+use teloxide::types::InputFile;
 use tokio::sync::Mutex;
 
 const USER_API_ENDPOINT: &str = "https://osu.ppy.sh/api/get_user";
@@ -43,6 +44,45 @@ struct Response {
 #[derive(Deserialize, Debug)]
 struct UserEvent {
     display_html: String,
+    beatmap_id: String,
+}
+
+impl UserEvent {
+    async fn get_beatmap_info(
+        &self,
+        client: reqwest::Client,
+        token: &str,
+    ) -> Result<(reqwest::Url, String)> {
+        use osu_api::api::OsuApiRequester;
+
+        let beatmap_id: u64 = self.beatmap_id.parse()?;
+        let url = osu_api::util::v1::gen_beatmap_cover_img_url(beatmap_id);
+        let prop = osu_api::api::GetBeatmapsProps::builder()
+            .api_key(token)
+            .beatmap_id(beatmap_id)
+            .limit(1)
+            .build();
+        let beatmap = client.get_beatmaps(prop).await?;
+        if beatmap.is_empty() {
+            anyhow::bail!("No beatmap found")
+        }
+        let replay_info = format!(
+            r#"<b>Information</b>:
+
+<b>Name</b>: {song}
+<b>Stars</b>: {stars}
+<b>CS</b>: {cs} | <b>OD</b>: {od} | <b>AR</b>: {ar} | <b>HP</b>: {hp}
+    "#,
+            song = beatmap[0].title,
+            stars = beatmap[0].difficultyrating,
+            cs = beatmap[0].diff_size,
+            od = beatmap[0].diff_overall,
+            ar = beatmap[0].diff_approach,
+            hp = beatmap[0].diff_drain,
+        );
+
+        Ok((url, replay_info))
+    }
 }
 
 #[derive(Hash)]
@@ -191,6 +231,11 @@ async fn watch_and_response<C: OsuEventCache>(rt: Arc<Runtime<C>>) {
                     continue;
                 }
                 let event = event.unwrap();
+                let Ok((url, caption)) = event
+                    .get_beatmap_info(rt.client.clone(), &rt.config.token)
+                    .await else {
+                        continue;
+                    };
                 let event = UserEventHtmlExt::parse_from(&event.display_html);
                 if event.is_err() {
                     continue;
@@ -211,11 +256,12 @@ async fn watch_and_response<C: OsuEventCache>(rt: Arc<Runtime<C>>) {
                 } // early drop the mutex lock
 
                 for chat in &rt.config.notifier {
+                    let caption = format!("{}\n{}", event.to_html(), caption);
                     let send_result = rt
                         .bot
-                        .send_message(*chat, format!("New OSU Event:\n{}", event.to_html()))
+                        .send_photo(*chat, InputFile::url(url.clone()))
+                        .caption(caption)
                         .parse_mode(teloxide::types::ParseMode::Html)
-                        .disable_web_page_preview(true)
                         .await;
                     if let Err(e) = send_result {
                         tracing::error!("fail to send osu event to {chat}: {e}")
