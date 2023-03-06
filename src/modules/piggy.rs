@@ -4,27 +4,21 @@ use scraper::{Html, Selector};
 
 fn collect_pig_recipe(page: &str) -> Result<Vec<String>> {
     let page = Html::parse_fragment(page);
-    let recipe_list = Selector::parse("ul.on").unwrap();
-    let li = Selector::parse("li a p").unwrap();
+    let recipe_list = Selector::parse(".plist li a div").unwrap();
 
     // take one
-    let ul = page
+    let recipe_list = page
         .select(&recipe_list)
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("Fail to select recipe from the given HTML page"))?;
+        .into_iter()
+        .filter_map(|elem| elem.text().next())
+        .map(|text| text.to_string())
+        .collect::<Vec<_>>();
 
-    let mut v = Vec::new();
-    for elem in ul.select(&li) {
-        if let Some(recipe) = elem.text().next() {
-            v.push(recipe.to_string());
-        }
-    }
-
-    if v.is_empty() {
+    if recipe_list.is_empty() {
         anyhow::bail!("Can not find any recipe for cooking piggy")
     }
 
-    Ok(v)
+    Ok(recipe_list)
 }
 
 fn collect_recipe(page: &str) -> Result<Vec<String>> {
