@@ -109,6 +109,7 @@ impl HttpClient {
         Ok(sendable)
     }
 
+    // TODO: replace the implementation: Get AI generated image from Civitai
     async fn fetch_nsfw_photo(&self) -> anyhow::Result<Sendable> {
         let fallbacks_urls = [
             "https://api.uomg.com/api/rand.img3?format=json",
