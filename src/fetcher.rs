@@ -61,6 +61,25 @@ pub struct KonachanApiResponse {
     pub author: String,
 }
 
+/// The response from MJX API is different. This type can match those different response.
+/// And its associate function can help extract the image link from response.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum MjxApiPossibleReponse {
+    Uomg { code: u8, imgurl: String },
+    Vvhan { title: String, pic: String },
+}
+
+impl MjxApiPossibleReponse {
+    /// Extract the image url from response
+    pub fn unwrap_url(self) -> String {
+        match self {
+            Self::Uomg { imgurl, .. } => imgurl,
+            Self::Vvhan { pic, .. } => pic,
+        }
+    }
+}
+
 // TODO: impl DataFetcher for HttpClient {}
 impl HttpClient {
     const KONACHAN_LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
@@ -77,14 +96,42 @@ impl HttpClient {
         let choice = choice.gen_range(0..response.len());
         let response = &response[choice];
 
-        Ok(Sendable::from_url_and_caption(
-            &response.jpeg_url,
-            format!(
+        let sendable = Sendable::builder()
+            .url(&response.jpeg_url)
+            .caption(format!(
                 "<a href=\"{}\">Download Link</a>\nSize: {:.2} MB, Author: {}",
                 response.file_url,
                 response.file_size as f32 / 1000000.0,
                 response.author
-            ),
-        ))
+            ))
+            .build();
+
+        Ok(sendable)
+    }
+
+    async fn fetch_nsfw_photo(&self) -> anyhow::Result<Sendable> {
+        let fallbacks_urls = [
+            "https://api.uomg.com/api/rand.img3?format=json",
+            "https://api.vvhan.com/api/tao?type=json",
+        ];
+
+        let mut trace = Vec::new();
+
+        for url in fallbacks_urls {
+            let url = reqwest::Url::parse(url).unwrap();
+
+            match self.to_t::<MjxApiPossibleReponse, _>(url).await {
+                Ok(res) => return Ok(Sendable::builder().url(res.unwrap_url()).build()),
+
+                Err(e) => {
+                    trace.push(e.to_string());
+                }
+            }
+        }
+
+        anyhow::bail!(
+            "fail to make request to all TaoBao API: {}",
+            trace.join("\n\n")
+        )
     }
 }
