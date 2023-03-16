@@ -10,7 +10,7 @@ teloxide = { version = "0.12.0", features = ["macros", "auto-send"] }
 tokio = { version = "1.20.0", features = ["full"] }
 dotenv = "0.15.0"
 anyhow = "1.0.58"
-reqwest = "0.11.11"
+reqwest = { version = "0.11.11", optional = true }
 serde = { version = "1.0.138", features = ["derive"]}
 serde_json = "1.0.82"
 chrono = "0.4.23"
@@ -27,9 +27,11 @@ jieba-rs = "0.6.6"
 deepl = "0.3.0"
 typed-builder = "0.11.0"
 osu-api = "0.1.0"
+make-quote = "0.1.0"
 
 [features]
-default = []
+default = ["reqwest"]
 weibo = []
 osu = []
+reqwest = ["dep:reqwest"]
 pattern-reply = []

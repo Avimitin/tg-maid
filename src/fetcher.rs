@@ -1,9 +1,12 @@
 use anyhow::Context;
+use rand::Rng;
+use serde::Deserialize;
 use std::time::Duration;
 
-use crate::data::DataFetcher;
+use crate::data::{DataFetcher, Sendable};
 
 pub struct HttpClient {
+    #[cfg(feature = "reqwest")]
     inner: reqwest::Client,
 }
 
