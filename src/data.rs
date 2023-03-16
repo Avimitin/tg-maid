@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use reqwest::IntoUrl;
 use std::ops::Deref;
 use std::sync::Arc;
 use teloxide::types::InputFile;
@@ -44,7 +45,13 @@ pub trait CacheManager: Send + Sync {
 
 pub enum Sendable {
     Text(String),
-    Message(InputFile, String),
+    File(InputFile, String),
+}
+
+impl Sendable {
+    pub fn from_url_and_caption(url: impl IntoUrl, caption: impl std::fmt::Display) -> Self {
+        Self::File(InputFile::url(url.into_url().unwrap()), caption.to_string())
+    }
 }
 
 type FetchResult = Result<Sendable>;
