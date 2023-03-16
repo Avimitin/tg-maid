@@ -45,12 +45,66 @@ pub trait CacheManager: Send + Sync {
 
 pub enum Sendable {
     Text(String),
-    File(InputFile, String),
+    File(InputFile, Option<String>),
 }
 
 impl Sendable {
-    pub fn from_url_and_caption(url: impl IntoUrl, caption: impl std::fmt::Display) -> Self {
-        Self::File(InputFile::url(url.into_url().unwrap()), caption.to_string())
+    pub fn builder() -> SendableBuilder<(), (), ()> {
+        SendableBuilder {
+            text: (),
+            file: (),
+            caption: (),
+        }
+    }
+}
+
+pub struct SendableBuilder<T, F, C> {
+    text: T,
+    file: F,
+    caption: C,
+}
+
+impl SendableBuilder<(), (), ()> {
+    pub fn text(self, s: impl std::fmt::Display) -> SendableBuilder<String, (), ()> {
+        SendableBuilder {
+            text: s.to_string(),
+            file: (),
+            caption: (),
+        }
+    }
+
+    pub fn url(self, u: impl IntoUrl) -> SendableBuilder<(), InputFile, ()> {
+        SendableBuilder {
+            file: InputFile::url(u.into_url().unwrap()),
+            text: (),
+            caption: (),
+        }
+    }
+}
+
+impl SendableBuilder<String, (), ()> {
+    pub fn build(self) -> Sendable {
+        Sendable::Text(self.text)
+    }
+}
+
+impl SendableBuilder<(), InputFile, ()> {
+    pub fn build(self) -> Sendable {
+        Sendable::File(self.file, None)
+    }
+
+    pub fn caption(self, c: impl std::fmt::Display) -> SendableBuilder<(), InputFile, String> {
+        SendableBuilder {
+            text: (),
+            file: self.file,
+            caption: c.to_string(),
+        }
+    }
+}
+
+impl SendableBuilder<(), InputFile, String> {
+    pub fn build(self) -> Sendable {
+        Sendable::File(self.file, Some(self.caption))
     }
 }
 
