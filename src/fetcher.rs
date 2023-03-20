@@ -1,4 +1,6 @@
-use crate::model::{KonachanApiResponse, MjxApiPossibleReponse};
+use crate::model::{
+    ArchLinuxPkgInfo, ArchLinuxSearchResponse, KonachanApiResponse, MjxApiPossibleReponse,
+};
 use anyhow::Context;
 use rand::Rng;
 use std::time::Duration;
@@ -102,5 +104,66 @@ impl HttpClient {
             "fail to make request to all TaoBao API: {}",
             trace.join("\n\n")
         )
+    }
+
+    const ARCH_PKG_SEARCH_API: &str = "https://www.archlinux.org/packages/search/json";
+
+    async fn fetch_pkg_info(&self, pkg: &str, max: usize) -> anyhow::Result<Sendable> {
+        let url = reqwest::Url::parse_with_params(Self::ARCH_PKG_SEARCH_API, &[("name", pkg)])
+            .with_context(|| format!("{pkg} is a invalid params"))?;
+
+        let resp: ArchLinuxSearchResponse = self.to_t(url).await?;
+        if !resp.is_valid() {
+            anyhow::bail!("invalid request!")
+        }
+
+        let pkg = resp
+            .results()
+            .iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("no result found for {pkg}"))?;
+
+        Ok(Sendable::builder().text(pkg).build())
+    }
+
+    async fn fetch_pkg_list(&self, pkg: &str, max: usize) -> anyhow::Result<Sendable> {
+        let query_by = |typ: &str| -> anyhow::Result<reqwest::Url> {
+            reqwest::Url::parse_with_params(Self::ARCH_PKG_SEARCH_API, &[(typ, pkg)])
+                .with_context(|| format!("{pkg} is a invalid params"))
+        };
+
+        let (exact_match, fuzzy_match) = tokio::join! {
+             self.to_t::<ArchLinuxSearchResponse, _>(query_by("name")?),
+             self.to_t::<ArchLinuxSearchResponse, _>(query_by("q")?),
+        };
+
+        let (exact_match, fuzzy_match) = (exact_match?, fuzzy_match?);
+
+        if !exact_match.is_valid() || !fuzzy_match.is_valid() {
+            anyhow::bail!("invalid request!")
+        }
+
+        let to_list_style = |pkg: &ArchLinuxPkgInfo| {
+            format!("<b>{}/{}</b>\n    {}", pkg.repo, pkg.pkgname, pkg.pkgdesc)
+        };
+
+        let fuzzy_matched_pkgs: String = fuzzy_match
+            .results()
+            .iter()
+            .take(max)
+            .fold(String::new(), |accum, pkg| {
+                format!("{accum}\n{}", to_list_style(pkg))
+            });
+
+        if exact_match.is_empty() {
+            Ok(Sendable::builder().text(fuzzy_matched_pkgs).build())
+        } else {
+            let text = format!(
+                "{}\n{}",
+                to_list_style(&exact_match.results()[0]),
+                fuzzy_matched_pkgs
+            );
+            Ok(Sendable::builder().text(text).build())
+        }
     }
 }
