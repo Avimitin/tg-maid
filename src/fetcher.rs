@@ -143,27 +143,37 @@ impl HttpClient {
             anyhow::bail!("invalid request!")
         }
 
-        let to_list_style = |pkg: &ArchLinuxPkgInfo| {
-            format!("<b>{}/{}</b>\n    {}", pkg.repo, pkg.pkgname, pkg.pkgdesc)
+        // Format characters: 19
+        //   + Max repo size (Community): 9
+        //   + General pkgname size: 10
+        //   + General pkgdesc size: 50
+        //
+        // * Entry counts: max
+        const MAYBE_CHAR_SIZE: usize = 19 + 9 + 10 + 50;
+        let fuzzy_pkg_size = fuzzy_match.results().len();
+        let maybe_entry_size = if max > fuzzy_pkg_size {
+            max
+        } else {
+            fuzzy_pkg_size
+        };
+        let mut buffer = String::with_capacity(MAYBE_CHAR_SIZE * maybe_entry_size);
+
+        let mut push_into_buffer = |pkg: &ArchLinuxPkgInfo| {
+            let display = format!("<b>{}/{}</b>\n    {}", pkg.repo, pkg.pkgname, pkg.pkgdesc);
+            buffer.push_str(&display);
+            buffer.push('\n');
         };
 
-        let fuzzy_matched_pkgs: String = fuzzy_match
+        if !exact_match.is_empty() {
+            push_into_buffer(&exact_match.results()[0])
+        }
+
+        fuzzy_match
             .results()
             .iter()
             .take(max)
-            .fold(String::new(), |accum, pkg| {
-                format!("{accum}\n{}", to_list_style(pkg))
-            });
+            .for_each(push_into_buffer);
 
-        if exact_match.is_empty() {
-            Ok(Sendable::builder().text(fuzzy_matched_pkgs).build())
-        } else {
-            let text = format!(
-                "{}\n{}",
-                to_list_style(&exact_match.results()[0]),
-                fuzzy_matched_pkgs
-            );
-            Ok(Sendable::builder().text(text).build())
-        }
+        Ok(Sendable::builder().text(buffer).build())
     }
 }
