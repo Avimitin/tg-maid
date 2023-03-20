@@ -85,10 +85,8 @@ impl HttpClient {
     const KONACHAN_LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
 
     async fn fetch_nsfw_anime_img(&self) -> anyhow::Result<Sendable> {
-        let link = reqwest::Url::parse(Self::KONACHAN_LINK).unwrap();
-
         let response: Vec<KonachanApiResponse> = self
-            .to_t(link)
+            .to_t(Self::KONACHAN_LINK)
             .await
             .with_context(|| "fail to get resp from konachan API")?;
 
@@ -119,8 +117,6 @@ impl HttpClient {
         let mut trace = Vec::new();
 
         for url in fallbacks_urls {
-            let url = reqwest::Url::parse(url).unwrap();
-
             match self.to_t::<MjxApiPossibleReponse, _>(url).await {
                 Ok(res) => return Ok(Sendable::builder().url(res.unwrap_url()).build()),
 
