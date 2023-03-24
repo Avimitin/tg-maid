@@ -3,23 +3,31 @@ use crate::model::{
 };
 use anyhow::Context;
 use rand::Rng;
+use std::ops::Deref;
 use std::time::Duration;
 
 use crate::data::{DataFetcher, Sendable};
 
-pub struct HttpClient {
-    #[cfg(feature = "reqwest")]
-    inner: reqwest::Client,
-}
+pub struct HttpClient(#[cfg(feature = "reqwest")] reqwest::Client);
 
 impl Default for HttpClient {
     fn default() -> Self {
-        Self {
-            inner: reqwest::Client::builder()
+        Self(
+            #[cfg(feature = "reqwest")]
+            reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
                 .build()
                 .unwrap(),
-        }
+        )
+    }
+}
+
+impl Deref for HttpClient {
+    #[cfg(feature = "reqwest")]
+    type Target = reqwest::Client;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -28,6 +36,7 @@ impl HttpClient {
         Self::default()
     }
 
+    #[cfg(feature = "reqwest")]
     #[inline]
     async fn to_t<T, U>(&self, url: U) -> anyhow::Result<T>
     where
@@ -37,8 +46,7 @@ impl HttpClient {
         // for debugging usage
         let url_str = url.to_string();
 
-        self.inner
-            .get(url)
+        self.get(url)
             .send()
             .await
             .with_context(|| format!("fail to send GET request to url: `{}`", url_str))?
