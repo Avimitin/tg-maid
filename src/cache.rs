@@ -1,5 +1,6 @@
 use crate::modules::cache::*;
 use async_trait::async_trait;
+use redis::Connection;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use std::collections::HashMap;
 use tracing::error;
@@ -8,6 +9,8 @@ use tracing::error;
 use crate::maid::watcher::osu::{EventCacheStatus, OsuEventCache};
 
 use crate::maid::watcher::bili::BiliRoomQueryCache;
+
+struct Cacher(r2d2::Pool<Connection>);
 
 const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
 const CODE_PREFIX_KEY: &str = "currency-code";
