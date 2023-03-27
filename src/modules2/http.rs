@@ -53,4 +53,9 @@ impl HttpClient {
                 )
             })
     }
+
+    #[inline]
+    pub fn inner(&self) -> &reqwest::Client {
+        &self.0
+    }
 }

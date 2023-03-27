@@ -2,6 +2,7 @@
 pub mod archlinux;
 pub mod currency;
 pub mod nsfw;
+pub mod weather;
 
 // Data Module
 pub mod cache;
