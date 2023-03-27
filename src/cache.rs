@@ -1,18 +1,20 @@
-use crate::modules::cache::*;
-use async_trait::async_trait;
-use redis::Connection;
-use redis::{aio::ConnectionManager, AsyncCommands};
-use std::collections::HashMap;
-use tracing::error;
+pub struct Cacher(r2d2::Pool<redis::Client>);
 
-#[cfg(feature = "osu")]
-use crate::maid::watcher::osu::{EventCacheStatus, OsuEventCache};
+impl Cacher {
+    pub fn new(client: redis::Client) -> Self {
+        Self(
+            r2d2::Pool::builder()
+                .build(client)
+                .expect("fail to construct a R2D2 Redis connection"),
+        )
+    }
 
-use crate::maid::watcher::bili::BiliRoomQueryCache;
+    pub fn get_conn(&self) -> r2d2::PooledConnection<redis::Client> {
+        self.0.get().expect("fail to get redis connection")
+    }
+}
 
-struct Cacher(r2d2::Pool<Connection>);
-
-const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
+/* const DATE_FORMAT: &str = "%Y-%m-%d-%H-%M-%S";
 const CODE_PREFIX_KEY: &str = "currency-code";
 const DATE_KEY: &str = "currency-last-update";
 
@@ -106,4 +108,4 @@ impl BiliRoomQueryCache for ConnectionManager {
         let old_val = old_val.unwrap();
         Ok(old_val)
     }
-}
+} */
