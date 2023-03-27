@@ -1,4 +1,6 @@
 use anyhow::Context;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::ops::Deref;
 use std::time::Duration;
 
@@ -40,6 +42,32 @@ impl HttpClient {
         let url_str = url.to_string();
 
         self.get(url)
+            .send()
+            .await
+            .with_context(|| format!("fail to send GET request to url: `{}`", url_str))?
+            .json::<T>()
+            .await
+            .with_context(|| {
+                format!(
+                    "fail to parse response from url: `{}` to type `{}`",
+                    url_str,
+                    std::any::type_name::<T>()
+                )
+            })
+    }
+
+    pub async fn post_json_to_t<T>(
+        &self,
+        payload: &(impl Serialize + ?Sized),
+        url: impl reqwest::IntoUrl + std::fmt::Display,
+    ) -> anyhow::Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let url_str = url.to_string();
+
+        self.post(url)
+            .json(payload)
             .send()
             .await
             .with_context(|| format!("fail to send GET request to url: `{}`", url_str))?

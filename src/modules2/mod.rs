@@ -1,6 +1,7 @@
 // Provider Module
 pub mod archlinux;
 pub mod currency;
+pub mod ehentai;
 pub mod nsfw;
 pub mod weather;
 
