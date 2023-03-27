@@ -34,10 +34,9 @@ impl HttpClient {
 
     #[cfg(feature = "reqwest")]
     #[inline]
-    async fn to_t<T, U>(&self, url: U) -> anyhow::Result<T>
+    async fn to_t<T>(&self, url: impl reqwest::IntoUrl + std::fmt::Display) -> anyhow::Result<T>
     where
         T: serde::de::DeserializeOwned,
-        U: reqwest::IntoUrl + std::fmt::Display,
     {
         // for debugging usage
         let url_str = url.to_string();
@@ -59,4 +58,5 @@ impl HttpClient {
 }
 
 pub mod archlinux;
+pub mod currency;
 pub mod nsfw;
