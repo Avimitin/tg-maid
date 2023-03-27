@@ -2,8 +2,6 @@ use anyhow::Context;
 use std::ops::Deref;
 use std::time::Duration;
 
-use crate::data::{DataFetcher, Sendable};
-
 pub struct HttpClient(#[cfg(feature = "reqwest")] reqwest::Client);
 
 impl Default for HttpClient {
@@ -34,7 +32,7 @@ impl HttpClient {
 
     #[cfg(feature = "reqwest")]
     #[inline]
-    async fn to_t<T>(&self, url: impl reqwest::IntoUrl + std::fmt::Display) -> anyhow::Result<T>
+    pub async fn to_t<T>(&self, url: impl reqwest::IntoUrl + std::fmt::Display) -> anyhow::Result<T>
     where
         T: serde::de::DeserializeOwned,
     {
@@ -56,7 +54,3 @@ impl HttpClient {
             })
     }
 }
-
-pub mod archlinux;
-pub mod currency;
-pub mod nsfw;

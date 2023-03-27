@@ -1,5 +1,6 @@
 // ----------------- Types ----------------
-use crate::data::{AppData, Sendable};
+use super::Sendable;
+use crate::app::AppData;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -89,7 +90,7 @@ async fn get_fullname(data: &AppData, code: &str) -> anyhow::Result<String> {
         return Ok(fullname);
     }
 
-    let mut currency_map = update_currencies(&data).await?;
+    let mut currency_map = update_currencies(data).await?;
     if let Some(fullname) = currency_map.remove(code) {
         return Ok(fullname);
     }
@@ -106,14 +107,14 @@ fn is_outdated(date: &str) -> bool {
 
 async fn update_currencies(data: &AppData) -> anyhow::Result<HashMap<String, String>> {
     use redis::Commands;
-    const available_currencies: [&str; 2] = [
+    const FALLBACKS: [&str; 2] = [
         "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.min.json",
         "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies.min.json",
     ];
 
     let mut trace = Vec::with_capacity(2);
 
-    for url in available_currencies {
+    for url in FALLBACKS {
         match data.requester.to_t::<HashMap<String, String>>(url).await {
             Ok(map) => {
                 let mut conn = data.cacher.get_conn();
@@ -131,14 +132,14 @@ async fn update_currencies(data: &AppData) -> anyhow::Result<HashMap<String, Str
 }
 
 async fn fetch_rate(data: &AppData, from: &str, to: &str) -> anyhow::Result<CurrencyRateInfo> {
-    const fallbacks_urls: [&str; 2] = [
+    const FALLBACKS: [&str; 2] = [
           "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{from}/{to}.min.json",
           "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies/{from}/{to}.min.json",
     ];
 
     let mut error_trace = Vec::new();
 
-    for url in &fallbacks_urls {
+    for url in &FALLBACKS {
         let url = format!("{}/{}/{}.min.json", url, from, to);
 
         match data
