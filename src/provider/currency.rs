@@ -71,14 +71,41 @@ Date: {}
     Ok(Sendable::text(display))
 }
 
+const CACHE_KEY: &str = "AVAILABLE_CURRENCIES";
+const DATE_KEY: &str = "CURRENCIES_CODE_LAST_UPDATE_DATE";
+
 async fn get_fullname(data: &AppData, code: &str) -> anyhow::Result<String> {
     use redis::Commands;
-    const CACHE_KEY: &str = "AVAILABLE_CURRENCIES";
-    let fullname: Option<String> = data.cacher.get_conn().hget(CACHE_KEY, code)?;
-    if let Some(fullname) = fullname {
+    let mut conn = data.cacher.get_conn();
+    let fullname: Option<String> = conn.hget(CACHE_KEY, code)?;
+    let date: Option<String> = conn.get(DATE_KEY)?;
+
+    let mut should_update = false;
+    if date.is_none() || is_outdated(&date.unwrap()) {
+        should_update = true;
+    }
+
+    if let (Some(fullname), false) = (fullname, should_update) {
         return Ok(fullname);
     }
 
+    let mut currency_map = update_currencies(&data).await?;
+    if let Some(fullname) = currency_map.remove(code) {
+        return Ok(fullname);
+    }
+
+    anyhow::bail!("Unknown currency: {}", code)
+}
+
+fn is_outdated(date: &str) -> bool {
+    let now = chrono::Utc::now().date_naive();
+    let last = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
+
+    now - last > chrono::Duration::days(1)
+}
+
+async fn update_currencies(data: &AppData) -> anyhow::Result<HashMap<String, String>> {
+    use redis::Commands;
     const available_currencies: [&str; 2] = [
         "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies.min.json",
         "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies.min.json",
@@ -90,9 +117,11 @@ async fn get_fullname(data: &AppData, code: &str) -> anyhow::Result<String> {
         match data.requester.to_t::<HashMap<String, String>>(url).await {
             Ok(map) => {
                 let mut conn = data.cacher.get_conn();
-                for (k, v) in map {
+                for (k, v) in &map {
                     conn.hset(CACHE_KEY, k, v)?;
                 }
+
+                return Ok(map);
             }
             Err(err) => trace.push(err.to_string()),
         }
