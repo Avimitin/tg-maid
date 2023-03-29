@@ -1,5 +1,6 @@
 // Provider Module
 pub mod archlinux;
+pub mod bilibili;
 pub mod collect;
 pub mod currency;
 pub mod ehentai;
