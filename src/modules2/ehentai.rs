@@ -4,6 +4,55 @@ use std::iter::Iterator;
 
 use crate::app::AppData;
 
+use super::Sendable;
+
+pub async fn fetch_ehentai_comic_data<'a, I>(
+    data: AppData,
+    gid_list: I,
+) -> anyhow::Result<Vec<Sendable>>
+where
+    I: Iterator<Item = (&'a str, &'a str)>,
+{
+    let api_url: reqwest::Url = reqwest::Url::parse("https://api.e-hentai.org/api.php").unwrap();
+
+    let request_data = EhentaiRequestType::new(gid_list);
+
+    let resp = data
+        .requester
+        .post_json_to_t::<PossibleEhentaiResponse>(&request_data, api_url)
+        .await?
+        .try_unwrap()?;
+
+    let v = resp.gmetadata.iter().fold(Vec::new(), |mut accum, elem| {
+        let display = format!(
+            "📖 Title: {}\
+             🗂️ Category: {}\
+             📄 Pages: {}\
+             ⭐ Rating: {}\
+             🌱 Torrent Amount: {}\
+             🔖 Tags: {}\
+             🔗 Links: {}
+            ",
+            elem.title_jpn,
+            elem.category,
+            elem.filecount,
+            elem.rating,
+            elem.torrentcount,
+            elem.tags.iter().fold(String::new(), |acc, x| format!(
+                "{acc} #{}",
+                x.split(':').nth(1).unwrap().replace([' ', '-'], "_")
+            )),
+            format_args!("https://e-hentai.org/g/{}/{}/", elem.gid, elem.token),
+        );
+        let sendable = Sendable::Text(display);
+
+        accum.push(sendable);
+        accum
+    });
+
+    Ok(v)
+}
+
 // -------------------------------- Type --------------------------------
 
 /// Data for sending request to ehentai. The `method` field and `namespace`
@@ -79,55 +128,31 @@ impl EhGmetadata {
     /// This function will render at most `max` torrent.
     /// If the `max` argument is larger then torrents amount,
     /// all the torrents information will be rendered.
-    pub fn to_telegram_html(&self, max: usize) -> String {
+    pub fn torrents(&self, max: usize) -> Sendable {
         let gid = if let Some(ref id) = self.first_gid {
             id.to_string()
         } else {
             format!("{}", self.gid)
         };
 
-        self.torrents
+        let display = self
+            .torrents
             .iter()
             .take(max)
             .fold(String::new(), |sum, torrent| {
                 format!(
-                    r#"{sum}
-* <b>Name</b>: <a href="https://ehtracker.org/get/{}/{}.torrent">{}</a>
-  <b>Size</b>: {} MB
-"#,
+                    "{sum} \
+                     * <b>Name</b>: <a href=\"https://ehtracker.org/get/{}/{}.torrent\">{}</a> \
+                     * <b>Size</b>: {} MB
+                    ",
                     gid,
                     torrent.hash,
                     torrent.name,
                     torrent.fsize / 1000000,
                 )
-            })
-    }
-}
+            });
 
-/// Custom format to display comit data.
-impl std::fmt::Display for EhGmetadata {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            r#"📖 Title: {}
-🗂️ Category: {}
-📄 Pages: {}
-⭐ Rating: {}
-🌱 Torrent Amount: {}
-🔖 Tags: {}
-🔗 Links: {}
-"#,
-            self.title_jpn,
-            self.category,
-            self.filecount,
-            self.rating,
-            self.torrentcount,
-            self.tags.iter().fold(String::new(), |acc, x| format!(
-                "{acc} #{}",
-                x.split(':').nth(1).unwrap().replace([' ', '-'], "_")
-            )),
-            format_args!("https://e-hentai.org/g/{}/{}/", self.gid, self.token),
-        )
+        Sendable::Text(display)
     }
 }
 
@@ -170,21 +195,4 @@ impl PossibleEhentaiResponse {
             Self::Err(e) => Err(anyhow::anyhow!("{}", e.error)),
         }
     }
-}
-
-pub async fn fetch_ehentai_comic_data<'a, I>(
-    data: AppData,
-    gid_list: I,
-) -> anyhow::Result<EhentaiMetadataResponse>
-where
-    I: Iterator<Item = (&'a str, &'a str)>,
-{
-    let api_url: reqwest::Url = reqwest::Url::parse("https://api.e-hentai.org/api.php").unwrap();
-
-    let request_data = EhentaiRequestType::new(gid_list);
-
-    data.requester
-        .post_json_to_t::<PossibleEhentaiResponse>(&request_data, api_url)
-        .await?
-        .try_unwrap()
 }
