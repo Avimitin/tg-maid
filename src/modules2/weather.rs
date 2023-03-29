@@ -11,7 +11,7 @@ pub async fn fetch_weather(data: AppData, city: &str) -> Result<Sendable> {
         &format!("{WTTR_IN_URL}/{city}"),
         &[("format", "%l的天气:+%c+温度:%t+湿度:%h+降雨量:%p")],
     )?;
-    let resp = data.requester.inner().get(url).send().await?.text().await?;
+    let resp = data.requester.get_text(url).await?;
     Ok(Sendable::builder()
         .url(format!("{WTTR_IN_URL}/{city}.png"))
         .caption(resp)

@@ -1,6 +1,8 @@
 use anyhow::Context;
+use reqwest::IntoUrl;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::fmt::Display;
 use std::ops::Deref;
 use std::time::Duration;
 
@@ -83,7 +85,7 @@ impl HttpClient {
     }
 
     #[inline]
-    pub fn inner(&self) -> &reqwest::Client {
-        &self.0
+    pub async fn get_text(&self, url: impl IntoUrl + Display) -> anyhow::Result<String> {
+        Ok(self.get(url).send().await?.text().await?)
     }
 }
