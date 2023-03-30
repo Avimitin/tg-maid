@@ -26,3 +26,28 @@ pub fn parse_from_env<T: FromStr>(key: &str) -> T {
         .parse::<T>()
         .unwrap_or_else(|_| panic!("invalid value, expect type {}", std::any::type_name::<T>()))
 }
+
+macro_rules! generate_html_tags {
+    ($($tag:ident),+) => {
+        pub struct Html;
+        impl Html {
+            $(
+                #[inline]
+                pub fn $tag(text: impl std::fmt::Display) -> String {
+                    const START: &str = concat!("<", stringify!($tag), ">");
+                    const END: &str = concat!("</", stringify!($tag), ">");
+                    format!("{START}{text}{END}")
+                }
+            )+
+        }
+    };
+}
+
+generate_html_tags![code, b, i, u, s, span, pre];
+
+impl Html {
+    #[inline]
+    pub fn a(href: &str, text: &str) -> String {
+        format!(r#"<a href="{href}">{text}</a>"#)
+    }
+}
