@@ -10,26 +10,31 @@ teloxide = { version = "0.12.0", features = ["macros", "auto-send"] }
 tokio = { version = "1.20.0", features = ["full"] }
 dotenv = "0.15.0"
 anyhow = "1.0.58"
-reqwest = "0.11.11"
+reqwest = { version = "0.11.11", optional = true }
 serde = { version = "1.0.138", features = ["derive"]}
 serde_json = "1.0.82"
 chrono = "0.4.23"
-redis = { version = "0.22.2", features = ["tokio-comp", "connection-manager"] }
 async-trait = "0.1.56"
 rand = "0.8.5"
 lazy_static = "1.4.0"
 tracing = "0.1.35"
 tracing-subscriber = "0.3.15"
-scraper = "0.13.0"
+scraper = "0.15.0"
 regex = "1.6.0"
 paste = "1.0.7"
 jieba-rs = "0.6.6"
-deepl = "0.3.0"
-typed-builder = "0.11.0"
+deepl = "0.4.1"
+typed-builder = "0.14.0"
 osu-api = "0.1.0"
+make-quote = "0.1.0"
+
+# Cache Management
+r2d2 = "0.8.10"
+redis = { version = "0.22.2", features = ["r2d2"] }
 
 [features]
-default = []
+default = ["reqwest"]
 weibo = []
 osu = []
+reqwest = ["dep:reqwest"]
 pattern-reply = []

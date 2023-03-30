@@ -1,8 +1,12 @@
 use tokio::{io::AsyncWriteExt, net::TcpListener};
 
 /// Spawn a health check listener in a non-blocking task for Docker HEALTHCHECK task
-pub fn spawn_healthcheck_listner(port: u16) {
-    // FIXME: This is an orphan task!
+pub fn spawn_healthcheck_listner() {
+    let port = std::env::var("HEALTHCHECK_PORT")
+        .unwrap_or_else(|_| "11451".to_string())
+        .parse::<u16>()
+        .expect("Invalid health check port number!");
+
     tokio::task::spawn(async move {
         let listener = TcpListener::bind(("127.0.0.1", port))
             .await
@@ -22,7 +26,7 @@ pub fn spawn_healthcheck_listner(port: u16) {
 
 #[tokio::test]
 async fn test_healthcheck() {
-    spawn_healthcheck_listner(11451);
+    spawn_healthcheck_listner();
 
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 

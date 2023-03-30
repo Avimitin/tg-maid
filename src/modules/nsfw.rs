@@ -1,6 +1,7 @@
-use crate::maid::Fetcher;
+use crate::app::AppData;
+
+use super::Sendable;
 use anyhow::Context;
-use async_trait::async_trait;
 use rand::Rng;
 use serde::Deserialize;
 
@@ -11,17 +12,6 @@ pub struct KonachanApiResponse {
     pub file_url: String,
     pub file_size: u32,
     pub author: String,
-}
-
-/// NsfwContentFetcher require two type of output. One should return
-/// Anime Waifu uwu, another one should return porn photograph.
-#[async_trait]
-pub trait NsfwProvider {
-    type AnimeOutput;
-    type PhotographOutput;
-
-    async fn fetch_anime_image(&self) -> Self::AnimeOutput;
-    async fn fetch_photograph(&self) -> Self::PhotographOutput;
 }
 
 /// The response from MJX API is different. This type can match those different response.
@@ -43,62 +33,63 @@ impl MjxApiPossibleReponse {
     }
 }
 
-/// Default impl the NsfwContentFetcher for reqwest::Client
-#[async_trait::async_trait]
-impl NsfwProvider for Fetcher {
-    type AnimeOutput = anyhow::Result<(reqwest::Url, String)>;
-    type PhotographOutput = anyhow::Result<reqwest::Url>;
+const KONACHAN_LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
 
-    /// The default implementation use Konachan as the R18 Anime image source
-    async fn fetch_anime_image(&self) -> anyhow::Result<(reqwest::Url, String)> {
-        const LINK: &str = "https://konachan.com/post.json?limit=200&tags=%20rating:explicit";
-        let link = reqwest::Url::parse(LINK).unwrap();
+/// Returns a random pick nsfw anime img from konachan
+///
+/// # Errors
+///
+/// This function will return an error if http request fail.
+pub async fn fetch_nsfw_anime_img(data: AppData) -> anyhow::Result<Sendable> {
+    let response: Vec<KonachanApiResponse> = data
+        .requester
+        .to_t(KONACHAN_LINK)
+        .await
+        .with_context(|| "fail to get resp from konachan API")?;
 
-        let response = self
-            .to_t::<Vec<KonachanApiResponse>>(link)
-            .await
-            .with_context(|| "fail to get resp from konachan API")?;
+    let mut choice = rand::thread_rng();
+    let choice = choice.gen_range(0..response.len());
+    let response = &response[choice];
 
-        let mut choice = rand::thread_rng();
-        let choice = choice.gen_range(0..response.len());
-        let response = &response[choice];
-
-        Ok((
-            reqwest::Url::parse(&response.jpeg_url)?,
-            format!(
-                "<a href=\"{}\">Download Link</a>\nSize: {:.2} MB, Author: {}",
-                response.file_url,
-                response.file_size as f32 / 1000000.0,
-                response.author
-            ),
+    let sendable = Sendable::builder()
+        .url(&response.jpeg_url)
+        .caption(format!(
+            "<a href=\"{}\">Download Link</a>\nSize: {:.2} MB, Author: {}",
+            response.file_url,
+            response.file_size as f32 / 1000000.0,
+            response.author
         ))
-    }
+        .build();
 
-    /// The default implementation fetch TaoBao image comment from bra/sex toy shop.
-    /// This is not a perfic choice for porn photograph, I will try to find another source.
-    async fn fetch_photograph(&self) -> anyhow::Result<reqwest::Url> {
-        let fallbacks_urls = [
-            "https://api.uomg.com/api/rand.img3?format=json",
-            "https://api.vvhan.com/api/tao?type=json",
-        ];
+    Ok(sendable)
+}
 
-        let mut trace = Vec::new();
+/// Returns a random nsfw image from Taobao Maijiaxiu.
+///
+/// # Errors
+///
+/// This function will return an error if http request fail.
+// TODO: replace the implementation: Get AI generated image from Civitai
+pub async fn fetch_nsfw_photo(data: AppData) -> anyhow::Result<Sendable> {
+    let fallbacks_urls = [
+        "https://api.uomg.com/api/rand.img3?format=json",
+        "https://api.vvhan.com/api/tao?type=json",
+    ];
 
-        for url in fallbacks_urls {
-            let url = reqwest::Url::parse(url).unwrap();
+    let mut trace = Vec::new();
 
-            match self.to_t::<MjxApiPossibleReponse>(url).await {
-                Ok(res) => return Ok(reqwest::Url::parse(&res.unwrap_url())?),
+    for url in fallbacks_urls {
+        match data.requester.to_t::<MjxApiPossibleReponse>(url).await {
+            Ok(res) => return Ok(Sendable::builder().url(res.unwrap_url()).build()),
 
-                Err(e) => {
-                    trace.push(e.to_string());
-                }
+            Err(e) => {
+                trace.push(e.to_string());
             }
         }
-
-        anyhow::bail!(
-            "fail to make request to all TaoBao API: {}",
-            trace.join("\n\n")
-        )
     }
+
+    anyhow::bail!(
+        "fail to make request to all TaoBao API: {}",
+        trace.join("\n\n")
+    )
 }
