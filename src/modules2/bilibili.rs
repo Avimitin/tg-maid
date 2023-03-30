@@ -1,4 +1,4 @@
-use crate::{app::AppData, event::EventWatcher};
+use crate::{app::AppData, event::EventWatcher, helper::get_list_from_env};
 use redis::Commands;
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
@@ -35,21 +35,6 @@ pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData) {
         .build();
 
     event_watcher.start("BilibiliLiveRoomWatcher", 60, watch_and_response);
-}
-
-fn get_list_from_env<T: FromStr>(k: &str) -> Vec<T> {
-    std::env::var(k)
-        .unwrap_or_else(|_| panic!("Env `{k}` not found"))
-        .split(',')
-        .map(|id| {
-            id.parse::<T>().unwrap_or_else(|_| {
-                panic!(
-                    "Type of value `{id}` for env `{k}` is not {}",
-                    std::any::type_name::<T>()
-                )
-            })
-        })
-        .collect::<Vec<T>>()
 }
 
 #[derive(Deserialize, Debug)]

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 /// Get list of value from the given environment variable by spliting the value of that variable
 /// with character `,`.
-pub fn get_list_from_var<T: FromStr>(key: &str) -> Vec<T> {
+pub fn get_list_from_env<T: FromStr>(key: &str) -> Vec<T> {
     std::env::var(key)
         .unwrap_or_else(|_| panic!("${key} not found in your env"))
         .split(',')
