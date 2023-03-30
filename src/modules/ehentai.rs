@@ -23,33 +23,37 @@ where
         .await?
         .try_unwrap()?;
 
-    let v = resp.gmetadata.iter().fold(Vec::new(), |mut accum, elem| {
-        let display = format!(
-            "📖 Title: {}\
-             🗂️ Category: {}\
-             📄 Pages: {}\
-             ⭐ Rating: {}\
-             🔖 Tags: {}\
-             🔗 Links: {}\
-             🌱 Torrents ({}):\n{}
-            ",
-            elem.title_jpn,
-            elem.category,
-            elem.filecount,
-            elem.rating,
-            elem.tags.iter().fold(String::new(), |acc, x| format!(
-                "{acc} #{}",
-                x.split(':').nth(1).unwrap().replace([' ', '-'], "_")
-            )),
-            format_args!("https://e-hentai.org/g/{}/{}/", elem.gid, elem.token),
-            elem.torrentcount,
-            elem.torrents(std::cmp::max(3, elem.torrentcount) as usize)
-        );
-        let sendable = Sendable::Text(display);
+    let v = resp
+        .gmetadata
+        .into_iter()
+        .fold(Vec::new(), |mut accum, elem| {
+            let display = format!(
+                "📖 Title: {}\n\
+                 🗂️ Category: {}\n\
+                 📄 Pages: {}\n\
+                 ⭐ Rating: {}\n\
+                 🔖 Tags: {}\n\
+                 🔗 Links: {}\n\
+                 🌱 Torrents ({}):{}
+                ",
+                elem.title_jpn,
+                elem.category,
+                elem.filecount,
+                elem.rating,
+                elem.tags.iter().fold(String::new(), |acc, x| format!(
+                    "{acc} #{}",
+                    x.split(':').nth(1).unwrap().replace([' ', '-'], "_")
+                )),
+                format_args!("https://e-hentai.org/g/{}/{}/", elem.gid, elem.token),
+                elem.torrentcount,
+                elem.torrents(std::cmp::max(3, elem.torrentcount) as usize)
+            );
 
-        accum.push(sendable);
-        accum
-    });
+            let sendable = Sendable::builder().url(elem.thumb).caption(display).build();
+
+            accum.push(sendable);
+            accum
+        });
 
     Ok(v)
 }
@@ -161,14 +165,13 @@ impl EhGmetadata {
             .take(max)
             .fold(String::new(), |sum, torrent| {
                 format!(
-                    "{sum} \
-                     * <b>Name</b>: <a href=\"https://ehtracker.org/get/{}/{}.torrent\">{}</a> \
-                     * <b>Size</b>: {} MB
+                    "{sum}\n\
+                     * [{} MB] <a href=\"https://ehtracker.org/get/{}/{}.torrent\">{}</a>\
                     ",
+                    torrent.fsize / 1000000,
                     gid,
                     torrent.hash,
                     torrent.name,
-                    torrent.fsize / 1000000,
                 )
             });
 
