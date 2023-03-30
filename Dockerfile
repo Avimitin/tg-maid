@@ -1,10 +1,10 @@
 FROM rust:latest AS build-env
 WORKDIR /src/butler
 COPY . /src/butler
-RUN cargo build --release --features osu
+RUN cargo build --release
 
 FROM debian:bullseye-slim
-COPY --from=build-env /src/butler/target/release/rusty-maid /bin/maid
+COPY --from=build-env /src/butler/target/release/tgbot /bin/tgbot
 RUN apt-get update && apt-get install -y \
       --no-install-recommends \
       netcat-openbsd \
@@ -12,4 +12,4 @@ RUN apt-get update && apt-get install -y \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/*
 HEALTHCHECK CMD nc -z 127.0.0.1 11451 || exit 1
-ENTRYPOINT ["/bin/maid"]
+ENTRYPOINT ["/bin/tgbot"]
