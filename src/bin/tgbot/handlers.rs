@@ -172,8 +172,6 @@ async fn weather_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
 async fn exchange_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     send_action!(@Typing; msg, bot);
 
-    let chat_id = msg.chat.id;
-
     let text = msg.text().unwrap();
     let parts = text.split(' ').collect::<Vec<&str>>();
     if parts.len() < 4 {
@@ -310,7 +308,7 @@ async fn collect_done_handler(
     Ok(())
 }
 
-async fn tr_handler(msg: Message, bot: Bot, dialogue: Dialogue, data: AppData) -> Result<()> {
+async fn tr_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     const HELP: &str = "\
             Usage: Reply to a text message and input: \n\
                 \t/tr [source language(optional)] target-language.\n\

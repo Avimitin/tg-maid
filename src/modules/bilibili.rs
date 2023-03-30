@@ -1,7 +1,7 @@
 use crate::{app::AppData, event::EventWatcher, helper::get_list_from_env};
 use redis::Commands;
 use serde::Deserialize;
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 use teloxide::{payloads::SendPhotoSetters, prelude::Requester, types as tg_type};
 
 pub struct BiliApi;
