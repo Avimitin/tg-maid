@@ -26,29 +26,6 @@ pub async fn get_pig_recipe(data: AppData) -> Result<Sendable> {
     Ok(Sendable::text(recipe))
 }
 
-async fn get_recipe(data: AppData) -> Result<Sendable> {
-    let page: u32 = rand::thread_rng().gen_range(0..=100);
-    let url = format!(
-        "https://home.meishichina.com/recipe-list-page-{}.html",
-        page
-    );
-
-    let page = data.requester.get_text(url).await?;
-
-    let recipe = tokio::task::block_in_place(move || -> String {
-        let res = collect_recipe(&page);
-        match res {
-            Ok(v) => {
-                let choice: usize = rand::thread_rng().gen_range(0..v.len());
-                format!("吃{}吧！", v[choice])
-            }
-            Err(_) => "你不许吃了！".to_string(),
-        }
-    });
-
-    Ok(Sendable::text(recipe))
-}
-
 fn collect_pig_recipe(page: &str) -> Result<Vec<String>> {
     let page = Html::parse_fragment(page);
     let recipe_list = Selector::parse(".plist li a div").unwrap();
@@ -56,7 +33,6 @@ fn collect_pig_recipe(page: &str) -> Result<Vec<String>> {
     // take one
     let recipe_list = page
         .select(&recipe_list)
-        .into_iter()
         .filter_map(|elem| elem.text().next())
         .map(|text| text.to_string())
         .collect::<Vec<_>>();
@@ -66,21 +42,6 @@ fn collect_pig_recipe(page: &str) -> Result<Vec<String>> {
     }
 
     Ok(recipe_list)
-}
-
-fn collect_recipe(page: &str) -> Result<Vec<String>> {
-    let page = Html::parse_fragment(page);
-    let recipes = Selector::parse(".detail h2").unwrap();
-    let recipes = page
-        .select(&recipes)
-        .filter_map(|rec| rec.text().next().map(|s| s.to_string()))
-        .collect::<Vec<_>>();
-
-    if recipes.is_empty() {
-        anyhow::bail!("Can not find any recipe")
-    }
-
-    Ok(recipes)
 }
 
 #[tokio::test]
