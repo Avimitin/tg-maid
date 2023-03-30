@@ -64,8 +64,10 @@ macro_rules! generate_commands {
             fn generate_stateless_cmd_handler() -> UpdateHandler<anyhow::Error>  {
                 teloxide::filter_command::<Command, _>()
                     $(
-                        .branch(dptree::case![Command::$cmd])
-                        .endpoint( [< $cmd:snake _handler>] )
+                        .branch(
+                            dptree::case![Command::$cmd]
+                                .endpoint( [< $cmd:snake _handler>] )
+                        )
                     )+
             }
         }
