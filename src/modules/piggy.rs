@@ -1,6 +1,53 @@
+use super::Sendable;
+use crate::app::AppData;
 use anyhow::Result;
 use rand::Rng;
 use scraper::{Html, Selector};
+
+pub async fn get_pig_recipe(data: AppData) -> Result<Sendable> {
+    let page: u32 = rand::thread_rng().gen_range(0..600);
+    let url = format!("https://www.meishichina.com/YuanLiao/ZhuRou/{page}");
+
+    let page = data.requester.get_text(&url).await?;
+
+    // Deserialize HTML page is a heavy task, however we don't have async way to do
+    // it. So what I can do is just not let the job block current thread.
+    let recipe = tokio::task::block_in_place(move || -> String {
+        let res = collect_pig_recipe(&page);
+        match res {
+            Ok(v) => {
+                let choice: usize = rand::thread_rng().gen_range(0..v.len());
+                format!("今天我们这样吃 piggy: {}", v[choice])
+            }
+            Err(e) => format!("今天没法吃 piggy 了呜呜呜: {e}"),
+        }
+    });
+
+    Ok(Sendable::text(recipe))
+}
+
+async fn get_recipe(data: AppData) -> Result<Sendable> {
+    let page: u32 = rand::thread_rng().gen_range(0..=100);
+    let url = format!(
+        "https://home.meishichina.com/recipe-list-page-{}.html",
+        page
+    );
+
+    let page = data.requester.get_text(url).await?;
+
+    let recipe = tokio::task::block_in_place(move || -> String {
+        let res = collect_recipe(&page);
+        match res {
+            Ok(v) => {
+                let choice: usize = rand::thread_rng().gen_range(0..v.len());
+                format!("吃{}吧！", v[choice])
+            }
+            Err(_) => "你不许吃了！".to_string(),
+        }
+    });
+
+    Ok(Sendable::text(recipe))
+}
 
 fn collect_pig_recipe(page: &str) -> Result<Vec<String>> {
     let page = Html::parse_fragment(page);
@@ -46,65 +93,4 @@ async fn test_select_recipe() {
         .unwrap();
 
     dbg!(collect_pig_recipe(&text).unwrap());
-}
-
-#[async_trait::async_trait]
-pub trait RecipeProvider {
-    type Result;
-    async fn get_pig_recipe(&self) -> Self::Result;
-    async fn get_recipe(&self) -> Self::Result;
-}
-
-#[async_trait::async_trait]
-impl RecipeProvider for crate::maid::Fetcher {
-    type Result = anyhow::Result<String>;
-
-    async fn get_pig_recipe(&self) -> Self::Result {
-        let page: u32 = rand::thread_rng().gen_range(0..600);
-        let url = reqwest::Url::parse(&format!(
-            "https://www.meishichina.com/YuanLiao/ZhuRou/{page}"
-        ))
-        .unwrap();
-
-        let page = self.fetch(url).await?;
-
-        // Deserialize HTML page is a heavy task, however we don't have async way to do
-        // it. So what I can do is just not let the job block current thread.
-        let task = move || -> String {
-            let res = collect_pig_recipe(&page);
-            match res {
-                Ok(v) => {
-                    use rand::Rng;
-                    let choice: usize = rand::thread_rng().gen_range(0..v.len());
-                    format!("今天我们这样吃 piggy: {}", v[choice])
-                }
-                Err(e) => format!("今天没法吃 piggy 了呜呜呜: {e}"),
-            }
-        };
-
-        Ok(tokio::task::block_in_place(task))
-    }
-
-    async fn get_recipe(&self) -> Self::Result {
-        let page: u32 = rand::thread_rng().gen_range(0..=100);
-        let url = reqwest::Url::parse(&format!(
-            "https://home.meishichina.com/recipe-list-page-{}.html",
-            page
-        ))
-        .unwrap();
-        let page = self.fetch(url).await?;
-
-        let task = move || -> String {
-            let res = collect_recipe(&page);
-            match res {
-                Ok(v) => {
-                    let choice: usize = rand::thread_rng().gen_range(0..v.len());
-                    format!("吃{}吧！", v[choice])
-                }
-                Err(_) => "你不许吃了！".to_string(),
-            }
-        };
-
-        Ok(tokio::task::block_in_place(task))
-    }
 }
