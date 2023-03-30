@@ -49,13 +49,7 @@ impl HttpClient {
             .with_context(|| format!("fail to send GET request to url: `{}`", url_str))?
             .json::<T>()
             .await
-            .with_context(|| {
-                format!(
-                    "fail to parse response from url: `{}` to type `{}`",
-                    url_str,
-                    std::any::type_name::<T>()
-                )
-            })
+            .with_context(|| format!("json parse fail for url: `{}`", url_str,))
     }
 
     pub async fn post_json_to_t<T>(
