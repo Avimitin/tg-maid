@@ -46,10 +46,10 @@ impl HttpClient {
         self.get(url)
             .send()
             .await
-            .with_context(|| format!("fail to send GET request to url: `{}`", url_str))?
+            .with_context(|| format!("fail to send GET request to url: {}", url_str))?
             .json::<T>()
             .await
-            .with_context(|| format!("json parse fail for url: `{}`", url_str,))
+            .with_context(|| format!("json parse fail for url: {}", url_str,))
     }
 
     pub async fn post_json_to_t<T>(
