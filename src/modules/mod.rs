@@ -7,6 +7,7 @@ pub mod ehentai;
 pub mod health;
 pub mod ksyx;
 pub mod nsfw;
+pub mod osu;
 pub mod piggy;
 pub mod weather;
 

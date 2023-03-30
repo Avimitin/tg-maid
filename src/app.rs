@@ -33,4 +33,7 @@ pub struct RuntimeData {
     pub requester: HttpClient,
 
     pub deepl: DeepLApi,
+
+    #[cfg(feature = "osu")]
+    pub osu: rosu_v2::Osu,
 }

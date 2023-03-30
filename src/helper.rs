@@ -20,3 +20,9 @@ pub fn get_list_from_env<T: FromStr>(key: &str) -> Vec<T> {
 pub fn env_get_var(key: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| panic!("{key} not found in your env"))
 }
+
+pub fn parse_from_env<T: FromStr>(key: &str) -> T {
+    env_get_var(key)
+        .parse::<T>()
+        .unwrap_or_else(|_| panic!("invalid value, expect type {}", std::any::type_name::<T>()))
+}

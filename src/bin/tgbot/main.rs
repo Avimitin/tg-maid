@@ -2,6 +2,7 @@ use deepl::DeepLApi;
 use rusty_maid::{
     app::{AppData, RuntimeData},
     cache::Cacher,
+    helper,
     http::HttpClient,
     modules,
 };
@@ -22,7 +23,7 @@ async fn run() {
 
     let handler = handlers::handler_schema();
     let dialogue_state = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
-    let app_data = prepare_app_data();
+    let app_data = prepare_app_data().await;
 
     modules::health::spawn_healthcheck_listner();
     modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone());
@@ -49,11 +50,21 @@ fn prepare_deepl() -> DeepLApi {
     DeepLApi::with(&authkey).new()
 }
 
-fn prepare_app_data() -> AppData {
+async fn prepare_osu() -> rosu_v2::Osu {
+    let client_id: u64 = helper::parse_from_env("OSU_CLIENT_ID");
+    let client_secret = helper::env_get_var("OSU_CLIENT_SECRET");
+
+    rosu_v2::Osu::new(client_id, client_secret)
+        .await
+        .unwrap_or_else(|err| panic!("fail to create osu client: {err}"))
+}
+
+async fn prepare_app_data() -> AppData {
     let data = RuntimeData::builder()
         .cacher(prepare_cache())
         .requester(HttpClient::new())
         .deepl(prepare_deepl())
+        .osu(prepare_osu().await)
         .build();
 
     data.into()
