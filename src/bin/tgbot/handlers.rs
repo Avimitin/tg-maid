@@ -11,6 +11,7 @@ use teloxide::{
 use rusty_maid::{
     app::AppData,
     modules::{self, Sendable},
+    sendable,
 };
 
 /// Represent the bot status for the current requesting user.
@@ -184,8 +185,22 @@ async fn exchange_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
         abort!(bot, msg, "Not a valid number: {}", parts[1]);
     };
 
-    let result = modules::currency::exchange(data, amount, parts[2], parts[3]).await;
-    handle_result!(bot, msg, result, "fail to make currency exchange");
+    let result = modules::currency::exchange(
+        data,
+        amount,
+        &parts[2].to_lowercase(),
+        &parts[3].to_lowercase(),
+    )
+    .await;
+
+    match result {
+        Ok(sendable) => {
+            sendable!(bot, msg, sendable, format = Html);
+        }
+        Err(err) => {
+            abort!(bot, msg, "{}: {}", "fail to make currency exchange", err);
+        }
+    };
 
     Ok(())
 }
