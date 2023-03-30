@@ -535,7 +535,7 @@ async fn osu_event_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> 
     let result = modules::osu::notify_user_latest_event(data, username).await;
     match result {
         Ok(sendable) => {
-            sendable!(bot, msg, sendable);
+            sendable!(bot, msg, sendable, format = Html);
         }
         Err(err) => {
             abort!(

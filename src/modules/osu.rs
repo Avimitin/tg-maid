@@ -4,7 +4,7 @@ use rosu_v2::{
     request::UserId,
 };
 
-use crate::app::AppData;
+use crate::{app::AppData, helper::Html};
 
 use super::Sendable;
 
@@ -17,10 +17,16 @@ pub async fn notify_user_latest_event(
         return Ok(Sendable::text("No more new event"));
     }
     let notification = unreported.into_iter().fold(String::new(), |accum, elem| {
-        format!("{accum}\n{}", format_event_type(elem.event_type))
+        format!("{accum}\n\n* {}", format_event_type(elem.event_type))
     });
 
     Ok(Sendable::Text(notification))
+}
+
+macro_rules! osu_url {
+    ($suffix:expr) => {
+        format!("https://osu.ppy.sh{}", $suffix)
+    };
 }
 
 fn format_event_type(typ: EventType) -> String {
@@ -33,7 +39,10 @@ fn format_event_type(typ: EventType) -> String {
             ..
         } => format!(
             "User {} get rank {} on {} with grade {}",
-            user.username, rank, beatmap.title, grade
+            Html::a(&osu_url!(user.url), &user.username),
+            Html::b(rank),
+            Html::a(&osu_url!(beatmap.url), &beatmap.title),
+            Html::b(grade)
         ),
         EventType::Medal { medal, user } => {
             format!(
