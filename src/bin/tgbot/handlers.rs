@@ -397,7 +397,7 @@ async fn tr_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     };
 
     if let Err(err) = result {
-        abort!(bot, msg, "fail to translate: {}", err);
+        abort!(bot, msg, "fail to translate: {:?}", err);
     }
 
     let resp = result.unwrap();
@@ -431,7 +431,14 @@ async fn pacman_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
                 abort!(bot, msg, "No package name! Abort");
             }
             let resp = modules::archlinux::fetch_pkg_info(data, pkg.unwrap()).await;
-            handle_result!(bot, msg, resp, "fail to get pkg info");
+            match resp {
+                Ok(sendable) => {
+                    sendable!(bot, msg, sendable, format = Html);
+                }
+                Err(err) => {
+                    abort!(bot, msg, "{}: {:?}", "fail to get pkg info", err);
+                }
+            };
         }
         "-Ss" => {
             let pkg = text.next();
@@ -439,7 +446,14 @@ async fn pacman_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
                 abort!(bot, msg, "No package name! Abort");
             }
             let resp = modules::archlinux::fetch_pkg_list(data, pkg.unwrap(), 8).await;
-            handle_result!(bot, msg, resp, "fail to get pkg");
+            match resp {
+                Ok(sendable) => {
+                    sendable!(bot, msg, sendable, format = Html);
+                }
+                Err(err) => {
+                    abort!(bot, msg, "{}: {:?}", "fail to get pkg", err);
+                }
+            };
         }
         "-Syu" => {
             if rand::random() {
