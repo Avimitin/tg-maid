@@ -20,12 +20,73 @@ use std::fmt::Display;
 use teloxide::{
     payloads::SendPhotoSetters,
     prelude::{Bot, Message, Requester},
-    types::InputFile,
+    types::{InputFile, ParseMode},
 };
 
 pub enum Sendable {
     Text(String),
     File(InputFile, Option<String>),
+}
+
+#[macro_export]
+macro_rules! sendable {
+    ($bot:expr, $msg:expr, $sendable:expr) => {
+        match $sendable {
+            Sendable::Text(msg) => {
+                $bot.send_message($msg.chat.id, msg).await?;
+            }
+            Sendable::File(file, caption) => {
+                if let Some(caption) = caption {
+                    $bot.send_photo($msg.chat.id, file).caption(caption).await?;
+                } else {
+                    $bot.send_photo($msg.chat.id, file).await?;
+                }
+            }
+        }
+    };
+
+    ($bot:expr, $msg:expr, $sendable:expr, format=$format:ident) => {
+        match $sendable {
+            Sendable::Text(msg) => {
+                $bot.send_message($msg.chat.id, msg)
+                    .parse_mode(ParseMode::$format)
+                    .await?;
+            }
+            Sendable::File(file, caption) => {
+                if let Some(caption) = caption {
+                    $bot.send_photo($msg.chat.id, file)
+                        .caption(caption)
+                        .parse_mode(ParseMode::$format)
+                        .await?;
+                } else {
+                    $bot.send_photo($msg.chat.id, file).await?;
+                }
+            }
+        }
+    };
+
+    ($bot:expr, $msg:expr, $sendable:expr, format=$format:ident, spoiler=on) => {
+        match $sendable {
+            Sendable::Text(msg) => {
+                $bot.send_message($msg.chat.id, msg)
+                    .parse_mode(ParseMode::$format)
+                    .await?;
+            }
+            Sendable::File(file, caption) => {
+                if let Some(caption) = caption {
+                    $bot.send_photo($msg.chat.id, file)
+                        .caption(caption)
+                        .parse_mode(ParseMode::$format)
+                        .has_spoiler(true)
+                        .await?;
+                } else {
+                    $bot.send_photo($msg.chat.id, file)
+                        .has_spoiler(true)
+                        .await?;
+                }
+            }
+        }
+    };
 }
 
 impl Sendable {
