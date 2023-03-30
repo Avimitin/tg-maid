@@ -1,7 +1,9 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::modules2::{cache::Cacher, http::HttpClient};
+use deepl::DeepLApi;
+
+use crate::modules::{cache::Cacher, http::HttpClient};
 
 pub struct AppData(Arc<RuntimeData>);
 
@@ -29,4 +31,6 @@ impl Deref for AppData {
 pub struct RuntimeData {
     pub cacher: Cacher,
     pub requester: HttpClient,
+
+    pub deepl: DeepLApi,
 }
