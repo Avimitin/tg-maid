@@ -34,10 +34,13 @@ pub async fn push_msg(data: AppData, msg: Message) -> anyhow::Result<u32> {
     };
 
     // [2001-02-03] at 04:05:06
-    let date = msg.date.format("[%F] at %T");
+    let val = if let Some(date) = msg.forward_date() {
+        format!("{}, <b>{sender}</b>:\n{text}", date.format("[%F] at %T"))
+    } else {
+        format!("<b>{sender}</b>:\n{text}")
+    };
 
     let key = format!("TG_COMMAND:COLLECT:{requester}");
-    let val = format!("{date}, {sender}:\n{text}");
     let array_size = data.cacher.get_conn().rpush(key, val)?;
     Ok(array_size)
 }

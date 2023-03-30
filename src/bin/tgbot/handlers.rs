@@ -278,6 +278,9 @@ async fn cook_piggy_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
 
 /// handler for the collect command
 async fn collect_handler(msg: Message, bot: Bot, dialogue: Dialogue) -> Result<()> {
+    if let teloxide::types::ChatKind::Public(_) = msg.chat.kind {
+        abort!(bot, msg, "This command can only be used in private chat");
+    }
     bot.send_message(
         msg.chat.id,
         "你可以开始转发信息了，使用命令 /collectdone 来结束命令收集",
@@ -308,13 +311,18 @@ async fn collect_done_handler(
     dialogue: Dialogue,
     data: AppData,
 ) -> Result<()> {
-    let msg = bot
-        .send_message(msg.chat.id, "Collect done, transforming...")
-        .await?;
+    send_action!(@Typing; msg, bot);
     dialogue.exit().await?;
 
     let result = modules::collect::finish(data, &msg).await;
-    handle_result!(bot, msg, result, "fail to collect message");
+    match result {
+        Ok(sendable) => {
+            sendable!(bot, msg, sendable, format = Html);
+        }
+        Err(err) => {
+            abort!(bot, msg, "{}: {}", "fail to collect message", err);
+        }
+    };
     Ok(())
 }
 
