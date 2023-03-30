@@ -22,19 +22,19 @@ tracing-subscriber = "0.3.15"
 scraper = "0.15.0"
 regex = "1.6.0"
 paste = "1.0.7"
-jieba-rs = "0.6.6"
 deepl = "0.4.1"
 typed-builder = "0.14.0"
-osu-api = "0.1.0"
 make-quote = "0.1.0"
+
+# osu
+rosu-v2 = "0.7.0"
+rosu-pp = "0.9.4"
 
 # Cache Management
 r2d2 = "0.8.10"
 redis = { version = "0.22.2", features = ["r2d2"] }
 
 [features]
-default = ["reqwest"]
-weibo = []
+default = ["reqwest", "osu"]
 osu = []
 reqwest = ["dep:reqwest"]
-pattern-reply = []
