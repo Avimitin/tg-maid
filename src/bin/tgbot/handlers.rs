@@ -127,7 +127,7 @@ macro_rules! handle_result {
                 sendable.send(&$bot, &$msg).await?;
             }
             Err(err) => {
-                abort!($bot, $msg, "{}: {}", $on_failure, err);
+                abort!($bot, $msg, "{}: {:?}", $on_failure, err);
             }
         }
     };
