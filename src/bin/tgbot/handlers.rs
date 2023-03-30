@@ -161,7 +161,7 @@ async fn weather_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     let text = msg.text().unwrap();
     let parts = text.split(' ').collect::<Vec<&str>>();
     if parts.len() < 2 {
-        anyhow::bail!("No enough argument. Usage: /weather 上海")
+        abort!(bot, msg, "No enough argument. Usage: /weather 上海");
     }
 
     let result = modules::weather::fetch_weather(data, text).await;
