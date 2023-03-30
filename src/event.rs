@@ -1,19 +1,41 @@
-use std::{fmt::Display, future::Future, sync::Arc, time::Duration};
+use std::{
+    fmt::Display,
+    future::Future,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+    time::Duration,
+};
 
-use serde_json::{Map, Value};
-use tokio::sync::{watch, Mutex};
+use tokio::sync::watch;
 use typed_builder::TypedBuilder;
 
 use crate::app::AppData;
 
-#[derive(TypedBuilder)]
-pub struct EventWatcher {
-    pub bot: teloxide::Bot,
-    pub data: AppData,
-    pub state: Arc<Mutex<Map<String, Value>>>,
+#[derive(Debug, Default, Clone, Copy)]
+pub struct State<S>(pub S);
+
+impl<S> Deref for State<S> {
+    type Target = S;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl Clone for EventWatcher {
+impl<S> DerefMut for State<S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(TypedBuilder)]
+pub struct EventWatcher<S> {
+    pub bot: teloxide::Bot,
+    pub data: AppData,
+    #[builder(setter( transform = |s: S| Arc::new(State(s)) ))]
+    pub state: Arc<State<S>>,
+}
+
+impl<S> Clone for EventWatcher<S> {
     fn clone(&self) -> Self {
         // bot & data is already wrapped by Arc
         Self {
@@ -24,16 +46,15 @@ impl Clone for EventWatcher {
     }
 }
 
-pub trait Promise: Future<Output = anyhow::Result<()>> + Send + Sync {}
-impl<T> Promise for T where T: Future<Output = anyhow::Result<()>> + Send + Sync {}
+pub trait Promise: Future<Output = anyhow::Result<()>> + Send + 'static {}
+impl<T> Promise for T where T: Future<Output = anyhow::Result<()>> + Send + 'static {}
 
-pub trait Task<E: Promise>: Fn(EventWatcher) -> E + Send + Sync + 'static {}
-
-impl EventWatcher {
-    pub async fn start<P, T>(self, task: T, name: impl Display, interval_secs: u64)
+impl<S> EventWatcher<S> {
+    pub fn start<P, T>(self, name: impl Display, interval_secs: u64, task: T)
     where
         P: Promise,
-        T: Task<P>,
+        S: Send + Sync + 'static,
+        T: Fn(EventWatcher<S>) -> P + Sync + Send + 'static,
     {
         let (tx, rx) = watch::channel(1_u8);
         let mut heartbeat = tokio::time::interval(Duration::from_secs(interval_secs));
@@ -48,8 +69,7 @@ impl EventWatcher {
                         break;
                     }
                     _ = heartbeat.tick() => {
-                        let result = task(watcher).await;
-                        if let Err(err) = result {
+                        if let Err(err) = task(watcher).await {
                             tracing::error!("{}", err)
                         }
                     }
