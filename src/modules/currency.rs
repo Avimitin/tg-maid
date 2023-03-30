@@ -133,8 +133,8 @@ async fn update_currencies(data: &AppData) -> anyhow::Result<HashMap<String, Str
 
 async fn fetch_rate(data: &AppData, from: &str, to: &str) -> anyhow::Result<CurrencyRateInfo> {
     const FALLBACKS: [&str; 2] = [
-          "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/{from}/{to}.min.json",
-          "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies/{from}/{to}.min.json",
+        "https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies",
+        "https://raw.githubusercontent.com/fawazahmed0/currency-api/1/latest/currencies",
     ];
 
     let mut error_trace = Vec::new();
@@ -159,7 +159,7 @@ async fn fetch_rate(data: &AppData, from: &str, to: &str) -> anyhow::Result<Curr
                 return Ok(CurrencyRateInfo::new(date, rate));
             }
             Err(e) => {
-                error_trace.push(e.to_string());
+                error_trace.push(format!("{:?}", e));
             }
         }
     }
