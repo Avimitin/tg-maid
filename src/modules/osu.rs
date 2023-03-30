@@ -3,8 +3,17 @@ use rosu_v2::{
     prelude::{EventType, RecentEvent},
     request::UserId,
 };
+use teloxide::{
+    payloads::SendMessageSetters,
+    requests::Requester,
+    types::{ChatId, ParseMode},
+};
 
-use crate::{app::AppData, helper::Html};
+use crate::{
+    app::AppData,
+    event::EventWatcher,
+    helper::{self, Html},
+};
 
 use super::Sendable;
 
@@ -12,7 +21,7 @@ pub async fn notify_user_latest_event(
     data: AppData,
     uid: impl Into<UserId>,
 ) -> anyhow::Result<Sendable> {
-    let unreported = get_user_recent_event(data.clone(), uid).await?;
+    let unreported = get_user_recent_event(&data, uid).await?;
     if unreported.is_empty() {
         return Ok(Sendable::text("No more new event"));
     }
@@ -21,6 +30,51 @@ pub async fn notify_user_latest_event(
     });
 
     Ok(Sendable::Text(notification))
+}
+
+pub fn spawn_osu_user_event_watcher(bot: teloxide::Bot, data: AppData) {
+    let state = OsuUserEventState {
+        user_ids: helper::env_get_var("OSU_USER_IDS")
+            .split(',')
+            .map(|id| id.to_string())
+            .collect(),
+        groups: helper::get_list_from_env("OSU_USER_EVENT_NOTIFY_GROUP"),
+    };
+
+    let event_watcher = EventWatcher::builder()
+        .bot(bot)
+        .data(data)
+        .state(state)
+        .build();
+
+    event_watcher.start("Osu Event Watcher", 60 * 5, watch);
+}
+
+async fn watch(ctx: EventWatcher<OsuUserEventState>) -> anyhow::Result<()> {
+    for user in &ctx.state.user_ids {
+        let unreported = get_user_recent_event(&ctx.data, user).await?;
+        if unreported.is_empty() {
+            return Ok(());
+        }
+
+        let notification = unreported.into_iter().fold(String::new(), |accum, elem| {
+            format!("{accum}\n\n* {}", format_event_type(elem.event_type))
+        });
+
+        for chat in &ctx.state.groups {
+            ctx.bot
+                .send_message(ChatId(*chat), notification.as_str())
+                .parse_mode(ParseMode::Html)
+                .await?;
+        }
+    }
+
+    Ok(())
+}
+
+struct OsuUserEventState {
+    user_ids: Vec<String>,
+    groups: Vec<i64>,
 }
 
 macro_rules! osu_url {
@@ -62,7 +116,7 @@ fn format_event_type(typ: EventType) -> String {
 }
 
 async fn get_user_recent_event(
-    data: AppData,
+    data: &AppData,
     uid: impl Into<UserId>,
 ) -> anyhow::Result<Vec<RecentEvent>> {
     let uid: UserId = uid.into();
@@ -73,7 +127,7 @@ async fn get_user_recent_event(
 
     let unreported: &[RecentEvent];
 
-    let last_offset = get_last_event_offset(&data, &uid)?;
+    let last_offset = get_last_event_offset(data, &uid)?;
     if let Some(last_offset) = last_offset {
         let p = events.partition_point(|event| event.created_at.unix_timestamp() > last_offset);
         if p == 0 {
@@ -84,7 +138,7 @@ async fn get_user_recent_event(
         unreported = events.as_slice();
     }
 
-    cache_event_offset(&data, &uid, &unreported[0])?;
+    cache_event_offset(data, &uid, &unreported[0])?;
 
     Ok(unreported.to_vec())
 }

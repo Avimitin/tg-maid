@@ -27,6 +27,7 @@ async fn run() {
 
     modules::health::spawn_healthcheck_listner();
     modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone());
+    modules::osu::spawn_osu_user_event_watcher(bot.clone(), app_data.clone());
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![app_data, dialogue_state])
