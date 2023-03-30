@@ -37,7 +37,7 @@ pub struct ArchLinuxPkgInfo {
     pub pkgrel: String,
     pub pkgdesc: String,
     pub url: String,
-    pub installed_size: u32,
+    pub installed_size: u64,
     pub last_update: String,
 }
 
