@@ -20,7 +20,7 @@ use std::fmt::Display;
 use teloxide::{
     payloads::SendPhotoSetters,
     prelude::{Bot, Message, Requester},
-    types::{InputFile, ParseMode},
+    types::InputFile,
 };
 
 pub enum Sendable {
