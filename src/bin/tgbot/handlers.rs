@@ -99,6 +99,8 @@ generate_commands! {
         Id,
         #[desc = "Translate text by DeepL"]
         Tr,
+        #[desc = "Get event from someone"]
+        OsuEvent,
     }
     stateful: {
         #[desc = "Finish Collect"]
@@ -516,6 +518,35 @@ async fn id_handler(msg: Message, bot: Bot) -> Result<()> {
         format!("user id: {user_id}\nchat id: {chat_id}"),
     )
     .await?;
+
+    Ok(())
+}
+
+async fn osu_event_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
+    send_action!(@Typing; msg, bot);
+
+    let text = msg.text().unwrap();
+    let parts = text.split_once(' ');
+
+    let Some((_, username)) = parts else {
+        abort!(bot, msg, "No enough argument. Usage: /osu_event username");
+    };
+
+    let result = modules::osu::notify_user_latest_event(data, username).await;
+    match result {
+        Ok(sendable) => {
+            sendable!(bot, msg, sendable);
+        }
+        Err(err) => {
+            abort!(
+                bot,
+                msg,
+                "fail to get last event for user {}: {:?}",
+                username,
+                err
+            );
+        }
+    }
 
     Ok(())
 }
