@@ -57,13 +57,13 @@ pub async fn fetch_pkg_info(data: AppData, pkg: &str) -> anyhow::Result<Sendable
         .ok_or_else(|| anyhow::anyhow!("no result found for {pkg}"))?;
 
     let display = format!(
-        "Name: {} \
-         Repo: {} \
-         Version: {}-{} \
-         Description: {} \
-         Upstream: {} \
-         Installed Size: {} \
-         Last Update: {} \
+        "Name: {}\n\
+         Repo: {}\n\
+         Version: {}-{}\n\
+         Description: {}\n\
+         Upstream: {}\n\
+         Installed Size: {}\n\
+         Last Update: {}\n\
        ",
         pkg.pkgname,
         pkg.repo,
