@@ -211,14 +211,7 @@ async fn ghs_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     let result = modules::nsfw::fetch_nsfw_anime_img(data).await;
     match result {
         Ok(sendable) => {
-            let Sendable::File(file, caption) = sendable else {
-                panic!("Bad Implementation")
-            };
-            bot.send_photo(msg.chat.id, file)
-                .parse_mode(ParseMode::Html)
-                .caption(caption.unwrap())
-                .has_spoiler(true)
-                .await?;
+            sendable!(bot, msg, sendable, format = Html, spoiler = on);
         }
         Err(err) => {
             abort!(bot, msg, "{}: {}", "fail to get image", err);
@@ -263,7 +256,7 @@ async fn eh_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     match result {
         Ok(sendables) => {
             for s in sendables {
-                s.send(&bot, &msg).await?;
+                sendable!(bot, msg, s, format = Html, spoiler = on);
             }
         }
         Err(err) => {
