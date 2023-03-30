@@ -1,7 +1,9 @@
 use deepl::DeepLApi;
 use rusty_maid::{
     app::{AppData, RuntimeData},
-    modules::{self, cache::Cacher, http::HttpClient},
+    cache::Cacher,
+    http::HttpClient,
+    modules,
 };
 use teloxide::{dispatching::dialogue, dptree, prelude::Dispatcher};
 

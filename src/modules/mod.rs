@@ -10,10 +10,6 @@ pub mod nsfw;
 pub mod piggy;
 pub mod weather;
 
-// Data Module
-pub mod cache;
-pub mod http;
-
 // Every module should provide a function that turn user input to [`Sendable`]
 use reqwest::IntoUrl;
 use std::fmt::Display;

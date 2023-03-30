@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use deepl::DeepLApi;
 
-use crate::modules::{cache::Cacher, http::HttpClient};
+use crate::{cache::Cacher, http::HttpClient};
 
 pub struct AppData(Arc<RuntimeData>);
 
