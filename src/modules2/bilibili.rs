@@ -1,7 +1,8 @@
-use crate::app::AppData;
+use crate::{app::AppData, event::EventWatcher};
 use redis::Commands;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
+use teloxide::{payloads::SendPhotoSetters, prelude::Requester, types as tg_type};
 
 pub struct BiliApi;
 impl BiliApi {
@@ -16,11 +17,45 @@ struct Response {
     data: HashMap<String, RoomInfo>,
 }
 
+struct BiliLiveRoomWatchState {
+    notify_group_ids: Vec<i64>,
+    streamer_uids: Vec<u64>,
+}
+
+pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData) {
+    let state = BiliLiveRoomWatchState {
+        notify_group_ids: get_list_from_env("BILI_NOTIFY_GROUP"),
+        streamer_uids: get_list_from_env("BILI_STREAMER_IDS"),
+    };
+
+    let event_watcher = EventWatcher::builder()
+        .bot(bot)
+        .data(data)
+        .state(state)
+        .build();
+
+    event_watcher.start("BilibiliLiveRoomWatcher", 60, watch_and_response);
+}
+
+fn get_list_from_env<T: FromStr>(k: &str) -> Vec<T> {
+    std::env::var(k)
+        .unwrap_or_else(|_| panic!("Env `{k}` not found"))
+        .split(',')
+        .map(|id| {
+            id.parse::<T>().unwrap_or_else(|_| {
+                panic!(
+                    "Type of value `{id}` for env `{k}` is not {}",
+                    std::any::type_name::<T>()
+                )
+            })
+        })
+        .collect::<Vec<T>>()
+}
+
 #[derive(Deserialize, Debug)]
 pub struct RoomInfo {
     title: String,
     cover_from_user: String,
-    keyframe: String,
     live_status: u8,
     #[serde(rename = "uname")]
     username: String,
@@ -29,9 +64,26 @@ pub struct RoomInfo {
     uid: u32,
 }
 
+impl RoomInfo {
+    fn to_captions(&self, status: u8) -> Option<String> {
+        match status {
+            0 => Some(format!("{} 下播了！", self.username)),
+            1 => Some(format!(
+                "<a href=\"{}\">{}</a> 开播了！\n直播: <a href=\"{}\">{}</a>\n分区: #{}\n",
+                format_args!("https://space.bilibili.com/{}/", self.uid),
+                self.username,
+                format_args!("https://live.bilibili.com/{}/", self.room_id),
+                self.title,
+                self.area_v2_name
+            )),
+            _ => None,
+        }
+    }
+}
+
 pub async fn batch_get_room_info(
-    data: AppData,
-    user_ids: impl Iterator<Item = u32>,
+    data: &AppData,
+    user_ids: impl Iterator<Item = &u64>,
 ) -> anyhow::Result<HashMap<String, RoomInfo>> {
     let payload = HashMap::from([("uids", user_ids.collect::<Vec<_>>())]);
     let info = data
@@ -46,7 +98,7 @@ pub async fn batch_get_room_info(
     Ok(info.data)
 }
 
-pub async fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> anyhow::Result<u8> {
+pub fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> anyhow::Result<u8> {
     let key = format!("BILI_LIVE_ROOM_STATUS:{}", info.room_id);
     let mut conn = data.cacher.get_conn();
     let prev_status: Option<u8> = conn.get(&key)?;
@@ -55,4 +107,48 @@ pub async fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> any
 
     // 255 indicate that the status is not exist before
     Ok(prev_status.unwrap_or(255))
+}
+
+async fn watch_and_response(ctx: EventWatcher<BiliLiveRoomWatchState>) -> anyhow::Result<()> {
+    let response = batch_get_room_info(&ctx.data, ctx.state.streamer_uids.iter()).await?;
+
+    for (_, room_info) in response {
+        let prev_status = cache_bili_live_room_status(&ctx.data, &room_info);
+        if let Err(err) = prev_status {
+            tracing::error!("[BiliLiveRoom] fail to update cache: {err}");
+            continue;
+        }
+
+        let status_unchanged = prev_status.unwrap() == room_info.live_status;
+        if status_unchanged {
+            continue;
+        }
+
+        for chat in &ctx.state.notify_group_ids {
+            if let Err(err) = notify_live_room_changes(&ctx.bot, *chat, &room_info).await {
+                tracing::error!("[BiliLiveRoom] fail to notify changes: {err}")
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn notify_live_room_changes(
+    bot: &teloxide::Bot,
+    chat_id: i64,
+    room_info: &RoomInfo,
+) -> anyhow::Result<()> {
+    let cover = reqwest::Url::parse(&room_info.cover_from_user)?;
+
+    let caption = room_info.to_captions(room_info.live_status);
+    if caption.is_none() {
+        return Ok(());
+    }
+    let caption = caption.unwrap();
+    bot.send_photo(tg_type::ChatId(chat_id), tg_type::InputFile::url(cover))
+        .caption(caption)
+        .parse_mode(tg_type::ParseMode::Html)
+        .await?;
+    Ok(())
 }
