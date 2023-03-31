@@ -16,7 +16,7 @@ pub struct Config {
     pub deepl: DeepLConfig,
     pub osu: OsuConfig,
 
-    pub bili_live_room_event: HashMap<String, Vec<u32>>,
+    pub bili_live_room_event: HashMap<String, Vec<u64>>,
     pub osu_user_activity_event: HashMap<String, Vec<String>>,
 }
 
