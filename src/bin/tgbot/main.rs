@@ -2,6 +2,7 @@ use deepl::DeepLApi;
 use rusty_maid::{
     app::{AppData, RuntimeData},
     cache::Cacher,
+    config::Config,
     helper,
     http::HttpClient,
     modules,
@@ -11,21 +12,23 @@ use teloxide::{dispatching::dialogue, dptree, prelude::Dispatcher};
 mod handlers;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     run().await
 }
 
-async fn run() {
-    let bot = teloxide::Bot::from_env();
+async fn run() -> anyhow::Result<()> {
+    let config = Config::from_path()?;
+
+    let bot = teloxide::Bot::new(&config.bot_token);
 
     let handler = handlers::handler_schema();
     let dialogue_state = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
-    let app_data = prepare_app_data().await;
+    let app_data = prepare_app_data(&config).await;
 
-    modules::health::spawn_healthcheck_listner();
+    modules::health::spawn_healthcheck_listner(config.health_check_port);
     modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone());
     modules::osu::spawn_osu_user_event_watcher(bot.clone(), app_data.clone());
 
@@ -36,36 +39,31 @@ async fn run() {
         .build()
         .dispatch()
         .await;
+
+    Ok(())
 }
 
-fn prepare_cache() -> Cacher {
-    let redis_addr = std::env::var("REDIS_ADDR")
-        .expect("fail to get redis addr, please check environment variable `REDIS_ADDR`.");
-    let client = redis::Client::open(redis_addr).expect("fail to open client");
+fn prepare_cache(cfg: &Config) -> Cacher {
+    let client = redis::Client::open(cfg.redis_addr.as_str()).expect("fail to open client");
     Cacher::new(client)
 }
 
-fn prepare_deepl() -> DeepLApi {
-    let authkey =
-        std::env::var("DEEPL_API_KEY").unwrap_or_else(|_| panic!("no deepl auth key found"));
-    DeepLApi::with(&authkey).new()
+fn prepare_deepl(cfg: &Config) -> DeepLApi {
+    DeepLApi::with(&cfg.deepl.api_key).new()
 }
 
-async fn prepare_osu() -> rosu_v2::Osu {
-    let client_id: u64 = helper::parse_from_env("OSU_CLIENT_ID");
-    let client_secret = helper::env_get_var("OSU_CLIENT_SECRET");
-
-    rosu_v2::Osu::new(client_id, client_secret)
+async fn prepare_osu(cfg: &Config) -> rosu_v2::Osu {
+    rosu_v2::Osu::new(cfg.osu.client_id, &cfg.osu.client_secret)
         .await
         .unwrap_or_else(|err| panic!("fail to create osu client: {err}"))
 }
 
-async fn prepare_app_data() -> AppData {
+async fn prepare_app_data(cfg: &Config) -> AppData {
     let data = RuntimeData::builder()
-        .cacher(prepare_cache())
+        .cacher(prepare_cache(cfg))
         .requester(HttpClient::new())
-        .deepl(prepare_deepl())
-        .osu(prepare_osu().await)
+        .deepl(prepare_deepl(cfg))
+        .osu(prepare_osu(cfg).await)
         .build();
 
     data.into()
