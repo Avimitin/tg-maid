@@ -6,8 +6,12 @@ use std::{env, fs, path};
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     pub bot_token: String,
+    #[serde(default = "redis_addr_default")]
     pub redis_addr: String,
+    #[serde(default = "log_level_default")]
     pub log_level: String,
+    #[serde(default = "health_check_port_default")]
+    pub health_check_port: u16,
 
     pub deepl: DeepLConfig,
     pub osu: OsuConfig,
@@ -57,6 +61,18 @@ pub struct OsuConfig {
     pub client_secret: String,
 }
 
+fn redis_addr_default() -> String {
+    "redis://localhost:6379".to_string()
+}
+
+fn health_check_port_default() -> u16 {
+    11451
+}
+
+fn log_level_default() -> String {
+    "INFO".to_string()
+}
+
 #[test]
 fn validate_file_correctness() {
     std::env::set_var("XDG_CONFIG_HOME", env::temp_dir().join("tg-maid-test-dir"));
@@ -64,6 +80,7 @@ fn validate_file_correctness() {
         bot_token = "abcde"
         redis_addr = "redis://localhost"
         log_level = "INFO"
+        health_check_port = 11451
 
         [deepl]
         api_key = "abcde"
