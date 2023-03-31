@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{env, fs, path};
@@ -16,7 +17,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn get_config_dir() -> path::PathBuf {
+    fn get_config_dir() -> anyhow::Result<path::PathBuf> {
         let config_dir = if let Ok(xdg_path) = env::var("XDG_CONFIG_HOME") {
             path::PathBuf::from(&xdg_path)
         } else {
@@ -26,25 +27,22 @@ impl Config {
         let dir = config_dir.join("tg_maid");
 
         if !dir.exists() {
-            fs::create_dir_all(&dir).expect("fail to create config dir");
+            fs::create_dir_all(&dir)?;
         }
 
-        dir
+        Ok(dir)
     }
 
-    pub fn new() -> Self {
-        let file_path = Self::get_config_dir().join("config.toml");
+    pub fn from_path() -> anyhow::Result<Self> {
+        let file_path = Self::get_config_dir()
+            .with_context(|| "fail to open config directory")?
+            .join("config.toml");
         if !file_path.exists() {
-            panic!("No config file found");
+            anyhow::bail!("No config file found");
         }
-        let content = fs::read_to_string(file_path).expect("fail to read config");
-        toml::from_str(&content).expect("invalid toml content")
-    }
-}
+        let content = fs::read_to_string(file_path).with_context(|| "fail to read config file")?;
 
-impl Default for Config {
-    fn default() -> Self {
-        Self::new()
+        toml::from_str(&content).with_context(|| "fail to parse config from toml")
     }
 }
 
@@ -55,7 +53,7 @@ pub struct DeepLConfig {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OsuConfig {
-    pub client_id: u32,
+    pub client_id: u64,
     pub client_secret: String,
 }
 
@@ -86,7 +84,7 @@ fn validate_file_correctness() {
     fs::create_dir_all(env::temp_dir().join("tg-maid-test-dir").join("tg_maid")).unwrap();
     fs::write(path.join("config.toml"), config).unwrap();
 
-    let config = Config::new();
+    let config = Config::from_path().unwrap();
     assert_eq!(config.bot_token, "abcde");
 
     fs::remove_dir(env::temp_dir().join("tg-maid-test-dir")).unwrap();
