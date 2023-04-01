@@ -1,7 +1,10 @@
 use std::{
+    collections::HashMap,
     fmt::Display,
     future::Future,
+    hash::Hash,
     ops::{Deref, DerefMut},
+    rc::Rc,
     sync::Arc,
     time::Duration,
 };
@@ -87,5 +90,98 @@ impl<S> EventWatcher<S> {
         };
 
         tokio::spawn(quit_on_ctrl_c());
+    }
+}
+
+pub struct Registry<Registrant, Event> {
+    relation: HashMap<Rc<Registrant>, Vec<Rc<Event>>>,
+    event_pool: Vec<Rc<Event>>,
+    cache: HashMap<Rc<Event>, Vec<Rc<Registrant>>>,
+}
+
+impl<R: Hash + Clone + PartialEq + Eq, E: Ord + Clone + Hash> Registry<R, E> {
+    pub fn new(relation: HashMap<R, Vec<E>>) -> Self {
+        let relation = relation
+            .into_iter()
+            .map(|(registrant, events)| {
+                (
+                    Rc::new(registrant),
+                    events.into_iter().map(|e| Rc::new(e)).collect::<Vec<_>>(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        let mut event_pool = relation
+            .values()
+            .flatten()
+            .cloned() // Perform Rc::clone
+            .collect::<Vec<_>>();
+        event_pool.sort();
+        event_pool.dedup();
+
+        Self {
+            relation,
+            event_pool,
+            cache: HashMap::new(),
+        }
+    }
+
+    pub fn register(&mut self, registrant: R, events: &[E]) {
+        let events = events
+            .iter()
+            .cloned()
+            .map(|e| {
+                self.cache.remove(&e);
+                Rc::new(e)
+            })
+            .collect::<Vec<_>>();
+
+        self.relation
+            .entry(Rc::new(registrant))
+            .and_modify(|exist| exist.extend_from_slice(events.as_slice()))
+            .or_insert(events);
+    }
+
+    #[inline]
+    pub fn get_registrant_from_cache(&self, event: &E) -> Option<Vec<&R>> {
+        self.cache
+            .get(event)
+            .map(|registrants| registrants.iter().map(|inner| inner.as_ref()).collect())
+    }
+
+    pub fn find_registrants_by_event(&mut self, event: &E) -> Vec<&R> {
+        if self.cache.contains_key(event) {
+            return self.get_registrant_from_cache(event).unwrap();
+        }
+
+        let mut matched_event = None;
+
+        let registrants: Vec<_> = self
+            .relation
+            .iter()
+            .filter_map(|(registrant, events)| {
+                let matched = events
+                    .iter()
+                    .find(|subscribed| subscribed.as_ref() == event);
+                if let Some(matched) = matched {
+                    matched_event.replace(matched);
+                    Some(Rc::clone(registrant))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if registrants.is_empty() || matched_event.is_none() {
+            return Vec::new();
+        }
+
+        let matched_event = Rc::clone(matched_event.unwrap());
+        self.cache.insert(matched_event, registrants);
+        self.get_registrant_from_cache(event).unwrap()
+    }
+
+    pub fn pool(&self) -> Vec<&E> {
+        self.event_pool.iter().map(|inner| inner.as_ref()).collect()
     }
 }
