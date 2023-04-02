@@ -136,6 +136,10 @@ impl<R: Hash + Clone + PartialEq + Eq, E: Ord + Clone + Hash> Registry<R, E> {
             })
             .collect::<Vec<_>>();
 
+        self.event_pool.extend_from_slice(events.as_slice());
+        self.event_pool.sort();
+        self.event_pool.dedup();
+
         self.relation
             .entry(Rc::new(registrant))
             .and_modify(|exist| exist.extend_from_slice(events.as_slice()))
