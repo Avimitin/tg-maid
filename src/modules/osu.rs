@@ -111,6 +111,9 @@ fn format_event_type(typ: EventType) -> String {
                 user.username
             )
         }
+        EventType::SupportAgain { user } | EventType::SupportFirst { user } => {
+            format!("User {} is now supporting osu!", Html::b(user.username))
+        }
         _ => format!("New event: {:?}", typ),
     }
 }
