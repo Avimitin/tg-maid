@@ -42,12 +42,14 @@ pub fn spawn_osu_user_event_watcher(bot: teloxide::Bot, data: AppData) {
     };
 
     let event_watcher = EventWatcher::builder()
+        .name("Osu Event Watcher")
+        .heartbeat_interval(60 * 5)
         .bot(bot)
         .data(data)
         .state(state)
         .build();
 
-    event_watcher.start("Osu Event Watcher", 60 * 5, watch);
+    event_watcher.start(watch);
 }
 
 async fn watch(ctx: EventWatcher<OsuUserEventState>) -> anyhow::Result<()> {

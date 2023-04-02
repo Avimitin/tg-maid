@@ -32,6 +32,10 @@ impl<S> DerefMut for State<S> {
 
 #[derive(TypedBuilder)]
 pub struct EventWatcher<S> {
+    #[builder(setter( transform = |s: impl Display| Arc::new(s.to_string().into()) ))]
+    name: Arc<Box<str>>,
+    #[builder(default = 60)]
+    heartbeat_interval: u64,
     pub bot: teloxide::Bot,
     pub data: AppData,
     #[builder(setter( transform = |s: S| Arc::new(State(s)) ))]
@@ -42,6 +46,8 @@ impl<S> Clone for EventWatcher<S> {
     fn clone(&self) -> Self {
         // bot & data is already wrapped by Arc
         Self {
+            name: Arc::clone(&self.name),
+            heartbeat_interval: self.heartbeat_interval,
             bot: self.bot.clone(),
             data: self.data.clone(),
             state: Arc::clone(&self.state),
@@ -53,14 +59,15 @@ pub trait Promise: Future<Output = anyhow::Result<()>> + Send + 'static {}
 impl<T> Promise for T where T: Future<Output = anyhow::Result<()>> + Send + 'static {}
 
 impl<S> EventWatcher<S> {
-    pub fn start<P, T>(self, name: impl Display, interval_secs: u64, task: T)
+    pub fn start<P, T>(self, task: T)
     where
         P: Promise,
         S: Send + Sync + 'static,
         T: Fn(EventWatcher<S>) -> P + Sync + Send + 'static,
     {
         let (tx, rx) = watch::channel(1_u8);
-        let mut heartbeat = tokio::time::interval(Duration::from_secs(interval_secs));
+        let mut heartbeat = tokio::time::interval(Duration::from_secs(self.heartbeat_interval));
+        let name = self.name.to_string();
 
         tokio::spawn(async move {
             loop {
@@ -79,8 +86,6 @@ impl<S> EventWatcher<S> {
                 }
             }
         });
-
-        let name = name.to_string();
 
         let quit_on_ctrl_c = || async move {
             tokio::signal::ctrl_c().await.ok();

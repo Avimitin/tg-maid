@@ -29,12 +29,13 @@ pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData) {
     };
 
     let event_watcher = EventWatcher::builder()
+        .name("BilibiliLiveRoomWatcher")
         .bot(bot)
         .data(data)
         .state(state)
         .build();
 
-    event_watcher.start("BilibiliLiveRoomWatcher", 60, watch_and_response);
+    event_watcher.start(watch_and_response);
 }
 
 #[derive(Deserialize, Debug)]
