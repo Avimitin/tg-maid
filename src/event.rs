@@ -93,14 +93,19 @@ impl<S> EventWatcher<S> {
     }
 }
 
+#[derive(Debug)]
 pub struct Registry<Registrant, Event> {
     relation: HashMap<Rc<Registrant>, Vec<Rc<Event>>>,
     event_pool: Vec<Rc<Event>>,
     cache: HashMap<Rc<Event>, Vec<Rc<Registrant>>>,
 }
 
-impl<R: Hash + Clone + PartialEq + Eq, E: Ord + Clone + Hash> Registry<R, E> {
-    pub fn new(relation: HashMap<R, Vec<E>>) -> Self {
+impl<Registrant, Event> Registry<Registrant, Event>
+where
+    Registrant: Hash + Clone + PartialEq + Eq + std::fmt::Debug,
+    Event: Ord + Clone + Hash + std::fmt::Debug,
+{
+    pub fn new(relation: HashMap<Registrant, Vec<Event>>) -> Self {
         let relation = relation
             .into_iter()
             .map(|(registrant, events)| {
@@ -126,7 +131,7 @@ impl<R: Hash + Clone + PartialEq + Eq, E: Ord + Clone + Hash> Registry<R, E> {
         }
     }
 
-    pub fn register(&mut self, registrant: R, events: &[E]) {
+    pub fn register(&mut self, registrant: Registrant, events: &[Event]) {
         let events = events
             .iter()
             .cloned()
@@ -147,13 +152,13 @@ impl<R: Hash + Clone + PartialEq + Eq, E: Ord + Clone + Hash> Registry<R, E> {
     }
 
     #[inline]
-    pub fn get_registrant_from_cache(&self, event: &E) -> Option<Vec<&R>> {
+    pub fn get_registrant_from_cache(&self, event: &Event) -> Option<Vec<&Registrant>> {
         self.cache
             .get(event)
             .map(|registrants| registrants.iter().map(|inner| inner.as_ref()).collect())
     }
 
-    pub fn find_registrants_by_event(&mut self, event: &E) -> Vec<&R> {
+    pub fn find_registrants_by_event(&mut self, event: &Event) -> Vec<&Registrant> {
         if self.cache.contains_key(event) {
             return self.get_registrant_from_cache(event).unwrap();
         }
@@ -185,7 +190,7 @@ impl<R: Hash + Clone + PartialEq + Eq, E: Ord + Clone + Hash> Registry<R, E> {
         self.get_registrant_from_cache(event).unwrap()
     }
 
-    pub fn pool(&self) -> Vec<&E> {
+    pub fn pool(&self) -> Vec<&Event> {
         self.event_pool.iter().map(|inner| inner.as_ref()).collect()
     }
 }
