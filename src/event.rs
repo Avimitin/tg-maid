@@ -194,3 +194,36 @@ where
         self.event_pool.iter().map(|inner| inner.as_ref()).collect()
     }
 }
+
+#[test]
+fn test_registry() {
+    let relation = HashMap::from([("foo", vec![1, 2, 3]), ("bar", vec![9, 2, 8, 1])]);
+    let mut registry = Registry::new(relation);
+
+    // test pool correctness
+    let pool = registry.pool();
+    assert_eq!(pool, [&1, &2, &3, &8, &9]);
+
+    // test find correctness
+    let registrant = registry.find_registrants_by_event(&7);
+    assert!(registrant.is_empty());
+
+    let registrant = registry.find_registrants_by_event(&8);
+    assert_eq!(registrant, [&"bar"]);
+
+    let registrant = registry.find_registrants_by_event(&2);
+    let expect = ["foo", "bar"];
+    assert!(registrant.iter().any(|&x| expect.contains(x)));
+    assert_eq!(registry.cache.len(), 2);
+
+    registry.register("baz", &[2, 6, 7]);
+
+    let pool = registry.pool();
+    assert_eq!(pool, [&1, &2, &3, &6, &7, &8, &9]);
+
+    // test cache invalidation
+    let registrant = registry.find_registrants_by_event(&2);
+    let expect = ["foo", "bar"];
+    assert!(registrant.iter().any(|&x| expect.contains(x)));
+    assert_eq!(registry.cache.len(), 2);
+}
