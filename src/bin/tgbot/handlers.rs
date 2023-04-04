@@ -1,5 +1,6 @@
 use anyhow::Result;
 use rand::Rng;
+use redis::Commands;
 use teloxide::{
     dispatching::{dialogue, UpdateHandler},
     net::Download,
@@ -612,14 +613,26 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
 
     let avatar_id = &photos[0][0].file.id;
     let file = bot.get_file(avatar_id).await?;
-    let mut buffer = std::io::Cursor::new(Vec::with_capacity(file.size as usize));
-    bot.download_file(&file.path, &mut buffer).await?;
+    let avatar_cacher_key = format!("TG_AVATAR:USER:{}", avatar_id);
+    let cache: Option<Vec<u8>> = data.cacher.get_conn().get(&avatar_cacher_key).ok();
+
+    let avatar = if let Some(cache) = cache {
+        cache
+    } else {
+        let mut avatar = std::io::Cursor::new(Vec::with_capacity(file.size as usize));
+        bot.download_file(&file.path, &mut avatar).await?;
+        avatar.into_inner()
+    };
+
+    data.cacher
+        .get_conn()
+        .set_ex(avatar_cacher_key, avatar.as_slice(), 60 * 60 * 24)?;
 
     send_action!(@UploadPhoto; msg, bot);
     let quote_config = make_quote::ImgConfig::builder()
         .username(username)
         .quote(quote)
-        .avatar(buffer.get_ref().to_vec())
+        .avatar(avatar.as_slice())
         .build();
     let result = data.quote_maker.make_image(&quote_config);
     if let Err(err) = result {
@@ -627,5 +640,6 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     }
     let photo = teloxide::types::InputFile::memory(result.unwrap());
     bot.send_photo(msg.chat.id, photo).await?;
+
     Ok(())
 }

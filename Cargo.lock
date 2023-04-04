@@ -1103,9 +1103,9 @@ checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 
 [[package]]
 name = "make-quote"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdc9fe93ea06cb869b3bdaf192215c4e2152d0227b01bedc9daf30314f6bbfba"
+checksum = "059f16ba1b6e85ad6d9c6fd6fc9e54ec2371d627e5225aae123e254567bf280e"
 dependencies = [
  "image",
  "imageproc",
