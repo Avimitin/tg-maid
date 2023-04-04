@@ -614,7 +614,7 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     let avatar_id = &photos[0][0].file.id;
     let file = bot.get_file(avatar_id).await?;
     let avatar_cacher_key = format!("TG_AVATAR:USER:{}", avatar_id);
-    let cache: Option<Vec<u8>> = data.cacher.get_conn().get(&avatar_cacher_key).ok();
+    let cache: Option<Vec<u8>> = data.cacher.get_conn().get(&avatar_cacher_key)?;
 
     let avatar = if let Some(cache) = cache {
         cache
