@@ -1,15 +1,22 @@
-FROM rust:latest AS build-env
-WORKDIR /src/butler
-COPY . /src/butler
-RUN cargo build --release
+FROM archlinux:latest
 
-FROM debian:bullseye-slim
-COPY --from=build-env /src/butler/target/release/tgbot /bin/tgbot
-RUN apt-get update && apt-get install -y \
-      --no-install-recommends \
-      netcat-openbsd \
-      ca-certificates \
-      && apt-get clean \
-      && rm -rf /var/lib/apt/lists/*
+# Prepare
+WORKDIR /build/src/rusty-maid
+COPY src Cargo.toml Cargo.lock /build/src/rusty-maid
+
+RUN pacman -Syu --noconfirm --needed \
+      noto-fonts-cjk \
+      openbsd-netcat
+RUN pacman -Scc --noconfirm
+RUN cargo fetch --locked
+
+# Build
+RUN cargo build --release --frozen
+
+# Package
+RUN cp /build/src/rusty-maid/target/release/tgbot /usr/bin/rusty-maid
+RUN rm -rf /build
+
+# Run
 HEALTHCHECK CMD nc -z 127.0.0.1 11451 || exit 1
-ENTRYPOINT ["/bin/tgbot"]
+ENTRYPOINT ["/usr/bin/rusty-maid"]
