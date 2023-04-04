@@ -101,6 +101,8 @@ generate_commands! {
         Tr,
         #[desc = "Get event from someone"]
         OsuEvent,
+        #[desc = "Roll a number"]
+        Roll,
     }
     stateful: {
         #[desc = "Finish Collect"]
@@ -547,6 +549,28 @@ async fn osu_event_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> 
             );
         }
     }
+
+    Ok(())
+}
+
+async fn roll_handler(msg: Message, bot: Bot) -> Result<()> {
+    send_action!(@Typing; msg, bot);
+
+    let text = msg.text().unwrap();
+    let parts = text.split_once(' ');
+
+    let choosen: u64;
+    if let Some((_, max)) = parts {
+        let Ok(max) = max.parse::<u64>() else {
+            abort!(bot, msg, "expect number");
+        };
+
+        choosen = rand::thread_rng().gen_range(0..max);
+    } else {
+        choosen = rand::random();
+    }
+
+    bot.send_message(msg.chat.id, choosen.to_string()).await?;
 
     Ok(())
 }

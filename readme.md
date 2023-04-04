@@ -10,8 +10,8 @@ docker-compose up -d
 
 ## TODO
 
-- [ ] Read config from file
+- [x] Read config from file
 - [ ] Render osu! user profile and score in SVG, then transform into PNG
 - [ ] Implement the make quote functionality
 - [ ] Get random restaurant suggestion from DianPing
-- [ ] New command `/roll [range]`
+- [x] New command `/roll [range]`
