@@ -9,11 +9,7 @@ use teloxide::{
     types::{ChatId, ParseMode},
 };
 
-use crate::{
-    app::AppData,
-    event::EventWatcher,
-    helper::{self, Html},
-};
+use crate::{app::AppData, config::Config, event::EventWatcher, helper::Html};
 
 use super::Sendable;
 
@@ -32,28 +28,20 @@ pub async fn notify_user_latest_event(
     Ok(Sendable::Text(notification))
 }
 
-pub fn spawn_osu_user_event_watcher(bot: teloxide::Bot, data: AppData) {
-    let state = OsuUserEventState {
-        user_ids: helper::env_get_var("OSU_USER_IDS")
-            .split(',')
-            .map(|id| id.to_string())
-            .collect(),
-        groups: helper::get_list_from_env("OSU_USER_EVENT_NOTIFY_GROUP"),
-    };
-
-    let event_watcher = EventWatcher::builder()
+pub fn spawn_osu_user_event_watcher(bot: teloxide::Bot, data: AppData, config: &Config) {
+    EventWatcher::builder()
         .name("Osu Event Watcher")
         .heartbeat_interval(60 * 5)
         .bot(bot)
         .data(data)
-        .state(state)
-        .build();
-
-    event_watcher.start(watch);
+        .build()
+        .setup_subscribe_registry(config.osu_user_activity_event.iter())
+        .start(watch);
 }
 
-async fn watch(ctx: EventWatcher<OsuUserEventState>) -> anyhow::Result<()> {
-    for user in &ctx.state.user_ids {
+async fn watch(ctx: EventWatcher<()>) -> anyhow::Result<()> {
+    let users: Vec<String> = ctx.event_pool()?;
+    for user in &users {
         let unreported = get_user_recent_event(&ctx.data, user).await?;
         if unreported.is_empty() {
             return Ok(());
@@ -63,20 +51,15 @@ async fn watch(ctx: EventWatcher<OsuUserEventState>) -> anyhow::Result<()> {
             format!("{accum}\n\n* {}", format_event_type(elem.event_type))
         });
 
-        for chat in &ctx.state.groups {
+        for chat in ctx.get_subscribers(&user)? {
             ctx.bot
-                .send_message(ChatId(*chat), notification.as_str())
+                .send_message(ChatId(chat), notification.as_str())
                 .parse_mode(ParseMode::Html)
                 .await?;
         }
     }
 
     Ok(())
-}
-
-struct OsuUserEventState {
-    user_ids: Vec<String>,
-    groups: Vec<i64>,
 }
 
 macro_rules! osu_url {

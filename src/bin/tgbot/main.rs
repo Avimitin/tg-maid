@@ -3,7 +3,6 @@ use rusty_maid::{
     app::{AppData, RuntimeData},
     cache::Cacher,
     config::Config,
-    helper,
     http::HttpClient,
     modules,
 };
@@ -29,8 +28,8 @@ async fn run() -> anyhow::Result<()> {
     let app_data = prepare_app_data(&config).await;
 
     modules::health::spawn_healthcheck_listner(config.health_check_port);
-    modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone());
-    modules::osu::spawn_osu_user_event_watcher(bot.clone(), app_data.clone());
+    modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone(), &config);
+    modules::osu::spawn_osu_user_event_watcher(bot.clone(), app_data.clone(), &config);
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![app_data, dialogue_state])

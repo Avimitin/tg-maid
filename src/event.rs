@@ -37,8 +37,8 @@ pub struct EventWatcher<S> {
     heartbeat_interval: u64,
     pub bot: teloxide::Bot,
     pub data: AppData,
-    #[builder(setter( transform = |s: S| Arc::new(State(s)) ))]
-    pub state: Arc<State<S>>,
+    #[builder(default, setter( transform = |s: S| Some(Arc::new(State(s))) ))]
+    pub state: Option<Arc<State<S>>>,
 }
 
 impl<S> Clone for EventWatcher<S> {
@@ -49,7 +49,7 @@ impl<S> Clone for EventWatcher<S> {
             heartbeat_interval: self.heartbeat_interval,
             bot: self.bot.clone(),
             data: self.data.clone(),
-            state: Arc::clone(&self.state),
+            state: self.state.clone(),
         }
     }
 }
@@ -117,17 +117,17 @@ impl<S> EventWatcher<S> {
         Ok(())
     }
 
-    pub fn setup_subscribe_registry<Subscriber, Event, Relation>(
-        &mut self,
+    pub fn setup_subscribe_registry<'iter, Subscriber, Event, Relation>(
+        self,
         iter: Relation,
-    ) -> &mut Self
+    ) -> Self
     where
-        Subscriber: Eq + Hash + std::fmt::Debug + redis::ToRedisArgs,
-        Event: Eq + Hash + std::fmt::Debug + std::fmt::Display + redis::ToRedisArgs,
-        Relation: IntoIterator<Item = (Subscriber, Vec<Event>)>,
+        Subscriber: Eq + Hash + std::fmt::Debug + redis::ToRedisArgs + 'iter,
+        Event: Eq + Hash + std::fmt::Debug + std::fmt::Display + redis::ToRedisArgs + 'iter,
+        Relation: Iterator<Item = (&'iter Subscriber, &'iter Vec<Event>)>,
     {
-        iter.into_iter().for_each(|(k, v)| {
-            self.subscribe_event(&k, &v).unwrap_or_else(|err| {
+        iter.for_each(|(k, v)| {
+            self.subscribe_event(k, v).unwrap_or_else(|err| {
                 panic!(
                     "fail to initialize the {} subscribe registry \
                         when subscribe event {:?} for registrant {:?}: \

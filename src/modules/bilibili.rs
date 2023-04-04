@@ -1,4 +1,4 @@
-use crate::{app::AppData, event::EventWatcher, helper::get_list_from_env};
+use crate::{app::AppData, config::Config, event::EventWatcher};
 use redis::Commands;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -17,25 +17,14 @@ struct Response {
     data: HashMap<String, RoomInfo>,
 }
 
-struct BiliLiveRoomWatchState {
-    notify_group_ids: Vec<i64>,
-    streamer_uids: Vec<u64>,
-}
-
-pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData) {
-    let state = BiliLiveRoomWatchState {
-        notify_group_ids: get_list_from_env("BILI_NOTIFY_GROUP"),
-        streamer_uids: get_list_from_env("BILI_STREAMER_IDS"),
-    };
-
-    let event_watcher = EventWatcher::builder()
+pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData, config: &Config) {
+    EventWatcher::builder()
         .name("BilibiliLiveRoomWatcher")
         .bot(bot)
         .data(data)
-        .state(state)
-        .build();
-
-    event_watcher.start(watch_and_response);
+        .build()
+        .setup_subscribe_registry(config.bili_live_room_event.iter())
+        .start(watch_and_response);
 }
 
 #[derive(Deserialize, Debug)]
@@ -47,7 +36,7 @@ pub struct RoomInfo {
     username: String,
     area_v2_name: String,
     room_id: u32,
-    uid: u32,
+    uid: u64,
 }
 
 impl RoomInfo {
@@ -95,8 +84,9 @@ pub fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> anyhow::R
     Ok(prev_status.unwrap_or(255))
 }
 
-async fn watch_and_response(ctx: EventWatcher<BiliLiveRoomWatchState>) -> anyhow::Result<()> {
-    let response = batch_get_room_info(&ctx.data, ctx.state.streamer_uids.iter()).await?;
+async fn watch_and_response(ctx: EventWatcher<()>) -> anyhow::Result<()> {
+    let subscribed_rooms = ctx.event_pool()?;
+    let response = batch_get_room_info(&ctx.data, subscribed_rooms.iter()).await?;
 
     for (_, room_info) in response {
         let prev_status = cache_bili_live_room_status(&ctx.data, &room_info);
@@ -110,8 +100,9 @@ async fn watch_and_response(ctx: EventWatcher<BiliLiveRoomWatchState>) -> anyhow
             continue;
         }
 
-        for chat in &ctx.state.notify_group_ids {
-            if let Err(err) = notify_live_room_changes(&ctx.bot, *chat, &room_info).await {
+        let subscribers = ctx.get_subscribers(&room_info.uid)?;
+        for chat_id in subscribers {
+            if let Err(err) = notify_live_room_changes(&ctx.bot, chat_id, &room_info).await {
                 tracing::error!("[BiliLiveRoom] fail to notify changes: {err}")
             }
         }
