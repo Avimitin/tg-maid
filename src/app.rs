@@ -36,4 +36,6 @@ pub struct RuntimeData {
 
     #[cfg(feature = "osu")]
     pub osu: rosu_v2::Osu,
+
+    pub quote_maker: make_quote::QuoteProducer<'static>,
 }

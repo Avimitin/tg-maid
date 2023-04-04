@@ -51,6 +51,15 @@ fn prepare_deepl(cfg: &Config) -> DeepLApi {
     DeepLApi::with(&cfg.deepl.api_key).new()
 }
 
+fn prepare_quote_maker() -> make_quote::QuoteProducer<'static> {
+    let bold = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc");
+    let light = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc");
+
+    make_quote::QuoteProducer::builder()
+        .font(bold, light)
+        .build()
+}
+
 async fn prepare_osu(cfg: &Config) -> rosu_v2::Osu {
     rosu_v2::Osu::new(cfg.osu.client_id, &cfg.osu.client_secret)
         .await
@@ -63,6 +72,7 @@ async fn prepare_app_data(cfg: &Config) -> AppData {
         .requester(HttpClient::new())
         .deepl(prepare_deepl(cfg))
         .osu(prepare_osu(cfg).await)
+        .quote_maker(prepare_quote_maker())
         .build();
 
     data.into()

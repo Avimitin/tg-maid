@@ -2,6 +2,7 @@ use anyhow::Result;
 use rand::Rng;
 use teloxide::{
     dispatching::{dialogue, UpdateHandler},
+    net::Download,
     payloads::SendPhotoSetters,
     prelude::*,
     types::ParseMode,
@@ -103,6 +104,8 @@ generate_commands! {
         OsuEvent,
         #[desc = "Roll a number"]
         Roll,
+        #[desc = "Make a image to record somebody's quote"]
+        MakeQuote,
     }
     stateful: {
         #[desc = "Finish Collect"]
@@ -572,5 +575,57 @@ async fn roll_handler(msg: Message, bot: Bot) -> Result<()> {
 
     bot.send_message(msg.chat.id, choosen.to_string()).await?;
 
+    Ok(())
+}
+
+async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
+    send_action!(@Typing; msg, bot);
+    let Some(reply_to_msg) = msg.reply_to_message() else {
+        abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+    };
+    let Some(quote) = reply_to_msg.text() else {
+        abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+    };
+    let Some(reply_to) = reply_to_msg.from() else {
+        abort!(bot, msg, "You should reply to normal user");
+    };
+
+    let username = if let Some(username) = &reply_to.username {
+        format!("@{username}")
+    } else {
+        reply_to.first_name.to_string()
+    };
+
+    send_action!(@UploadPhoto; msg, bot);
+    let photos = bot
+        .get_user_profile_photos(reply_to.id)
+        .limit(1)
+        .await?
+        .photos;
+    if photos.is_empty() || photos[0].is_empty() {
+        abort!(
+            bot,
+            msg,
+            "Reply to user have no avatar, non-avatar quote is still unimplemented"
+        );
+    }
+
+    let avatar_id = &photos[0][0].file.id;
+    let file = bot.get_file(avatar_id).await?;
+    let mut buffer = std::io::Cursor::new(Vec::with_capacity(file.size as usize));
+    bot.download_file(&file.path, &mut buffer).await?;
+
+    send_action!(@UploadPhoto; msg, bot);
+    let quote_config = make_quote::ImgConfig::builder()
+        .username(username)
+        .quote(quote)
+        .avatar(buffer.get_ref().to_vec())
+        .build();
+    let result = data.quote_maker.make_image(&quote_config);
+    if let Err(err) = result {
+        abort!(bot, msg, "fail to make quote: {}", err);
+    }
+    let photo = teloxide::types::InputFile::memory(result.unwrap());
+    bot.send_photo(msg.chat.id, photo).await?;
     Ok(())
 }
