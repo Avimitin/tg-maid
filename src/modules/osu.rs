@@ -36,7 +36,7 @@ pub fn spawn_osu_user_event_watcher(bot: teloxide::Bot, data: AppData, config: &
         .data(data)
         .build()
         .setup_subscribe_registry(config.osu_user_activity_event.iter())
-        .start(watch);
+        .start_with_task(watch);
 }
 
 async fn watch(ctx: EventWatcher<()>) -> anyhow::Result<()> {

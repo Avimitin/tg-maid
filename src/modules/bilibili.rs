@@ -24,7 +24,7 @@ pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData, conf
         .data(data)
         .build()
         .setup_subscribe_registry(config.bili_live_room_event.iter())
-        .start(watch_and_response);
+        .start_with_task(watch_and_response);
 }
 
 #[derive(Deserialize, Debug)]

@@ -57,11 +57,13 @@ impl<S> Clone for EventWatcher<S> {
 pub trait Promise: Future<Output = anyhow::Result<()>> + Send + 'static {}
 impl<T> Promise for T where T: Future<Output = anyhow::Result<()>> + Send + 'static {}
 
-impl<S> EventWatcher<S> {
-    pub fn start<P, T>(self, task: T)
+impl<S> EventWatcher<S>
+where
+    S: Send + Sync + 'static,
+{
+    pub fn start_with_task<P, T>(self, task: T)
     where
         P: Promise,
-        S: Send + Sync + 'static,
         T: Fn(EventWatcher<S>) -> P + Sync + Send + 'static,
     {
         let (tx, rx) = watch::channel(1_u8);
