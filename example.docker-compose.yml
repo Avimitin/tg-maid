@@ -1,0 +1,27 @@
+version: 3
+
+networks:
+  rusty-maid-network:
+    external: false
+
+service:
+  bot:
+    image: 'ghcr.io/avimitin/tg-maid:latest'
+    restart: always
+    container_name: rusty-maid
+    networks:
+      - rusty-maid-network
+    environment:
+      - XDG_CONFIG_HOME="/etc"
+    depends_on:
+      - cache
+    volumes:
+      - "./appdata:/etc/tg_maid"
+
+  cache:
+    image: 'redis:latest'
+    networks:
+      - rusty-maid-network
+    container_name: rusty-maid-cache
+    volumes:
+      - "./redis-data:/data"
