@@ -1,4 +1,6 @@
-# TG BUTLER
+# TG Maid
+
+My utility bot.
 
 ## Run with docker (Recommended)
 
