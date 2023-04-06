@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - uses: mozilla-actions/sccache-action@v0.0.3
       - uses: rui314/setup-mold@v1
       - run: |
           sudo apt-get update -yy
@@ -17,14 +16,11 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release
-      - name: Verify Build
-        run: |
-          readelf -p .comment target/release/tgbot | grep 'mold'
-          sccache --show-stats
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
