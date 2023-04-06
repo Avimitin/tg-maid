@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use redis::Commands;
 use tokio::sync::watch;
 use typed_builder::TypedBuilder;
 
@@ -98,27 +97,6 @@ where
         tokio::spawn(quit_on_ctrl_c());
     }
 
-    // Create `event = [registrant]` key-value pair
-    pub fn subscribe_event<Subscriber, Event>(
-        &self,
-        registrant: &Subscriber,
-        events: &Vec<Event>,
-    ) -> anyhow::Result<()>
-    where
-        Subscriber: redis::ToRedisArgs,
-        Event: redis::ToRedisArgs + std::fmt::Display,
-    {
-        let mut conn = self.data.cacher.get_conn();
-        let event_pool_key = format!("REGISTRY_EVENT_POOL:{}", self.name);
-        for event in events {
-            let key = format!("SUBSCRIBE_REGISTRY:{}:{}", self.name, event);
-            conn.sadd(key, registrant)?;
-            conn.sadd(event_pool_key.as_str(), event)?;
-        }
-
-        Ok(())
-    }
-
     pub fn setup_subscribe_registry<'iter, Subscriber, Event, Relation>(
         self,
         iter: Relation,
@@ -128,16 +106,7 @@ where
         Event: Eq + Hash + std::fmt::Debug + std::fmt::Display + redis::ToRedisArgs + 'iter,
         Relation: Iterator<Item = (&'iter Subscriber, &'iter Vec<Event>)>,
     {
-        iter.for_each(|(k, v)| {
-            self.subscribe_event(k, v).unwrap_or_else(|err| {
-                panic!(
-                    "fail to initialize the {} subscribe registry \
-                        when subscribe event {:?} for registrant {:?}: \
-                        {err}",
-                    self.name, v, k
-                )
-            });
-        });
+        self.data.cacher.setup_subscribe_registry(&self.name, iter);
 
         self
     }
@@ -146,8 +115,7 @@ where
     where
         Event: redis::FromRedisValue,
     {
-        let event_pool_key = format!("REGISTRY_EVENT_POOL:{}", self.name);
-        let events = self.data.cacher.get_conn().smembers(event_pool_key)?;
+        let events = self.data.cacher.event_pool(&self.name)?;
         Ok(events)
     }
 
@@ -159,8 +127,7 @@ where
         Subscriber: redis::FromRedisValue,
         Event: redis::ToRedisArgs + std::fmt::Display,
     {
-        let key = format!("SUBSCRIBE_REGISTRY:{}:{}", self.name, event);
-        let subscriber = self.data.cacher.get_conn().smembers(key)?;
+        let subscriber = self.data.cacher.get_subscribers(&self.name, event)?;
         Ok(subscriber)
     }
 }
