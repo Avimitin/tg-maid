@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@master
       - uses: mozilla-actions/sccache-action@v0.0.3
       - uses: rui314/setup-mold@v1
+      - run: apt-get install noto-fonts-cjk
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
