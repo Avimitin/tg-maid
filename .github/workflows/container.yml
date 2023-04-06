@@ -13,14 +13,12 @@ jobs:
       - run: |
           sudo apt-get update -yy
           sudo apt-get install fontconfig fonts-noto-cjk -yy
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+      - name: Build The bot
+        run: cargo build --release
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
