@@ -112,7 +112,7 @@ where
         let event_pool_key = format!("REGISTRY_EVENT_POOL:{}", self.name);
         for event in events {
             let key = format!("SUBSCRIBE_REGISTRY:{}:{}", self.name, event);
-            conn.rpush(key, registrant)?;
+            conn.sadd(key, registrant)?;
             conn.sadd(event_pool_key.as_str(), event)?;
         }
 
@@ -160,7 +160,7 @@ where
         Event: redis::ToRedisArgs + std::fmt::Display,
     {
         let key = format!("SUBSCRIBE_REGISTRY:{}:{}", self.name, event);
-        let subscriber = self.data.cacher.get_conn().lrange(key, 0, -1)?;
+        let subscriber = self.data.cacher.get_conn().smembers(key)?;
         Ok(subscriber)
     }
 }
