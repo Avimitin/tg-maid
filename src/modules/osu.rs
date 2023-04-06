@@ -77,7 +77,7 @@ fn format_event_type(typ: EventType) -> String {
             user,
             ..
         } => format!(
-            "User {} get rank {} on {} with grade {}",
+            "{} get rank {} on {} with grade {}",
             Html::a(&osu_url!(user.url), &user.username),
             Html::b(rank),
             Html::a(&osu_url!(beatmap.url), &beatmap.title),
@@ -85,19 +85,26 @@ fn format_event_type(typ: EventType) -> String {
         ),
         EventType::Medal { medal, user } => {
             format!(
-                "User {} get medal [{}]({})",
+                "{} get medal [{}]({})",
                 user.username, medal.name, medal.description
             )
         }
         EventType::UsernameChange { user } => {
             format!(
-                "User {} update username to {}",
+                "{} update username to {}",
                 user.previous_username.unwrap(),
                 user.username
             )
         }
         EventType::SupportAgain { user } | EventType::SupportFirst { user } => {
-            format!("User {} is now supporting osu!", Html::b(user.username))
+            format!("{} is now supporting osu!", Html::b(user.username))
+        }
+        EventType::RankLost { beatmap, user, .. } => {
+            format!(
+                "{} lost his first place on map: {}",
+                Html::a(&osu_url!(user.url), &user.username),
+                Html::a(&osu_url!(beatmap.url), &beatmap.title),
+            )
         }
         _ => format!("New event: {:?}", typ),
     }
