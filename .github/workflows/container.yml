@@ -20,8 +20,8 @@ jobs:
           command: build
           args: --release
       - run: |
-        readelf -p .comment target/release/tgbot | grep 'mold'
-        sccache --show-stats
+          readelf -p .comment target/release/tgbot | grep 'mold'
+          sccache --show-stats
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
