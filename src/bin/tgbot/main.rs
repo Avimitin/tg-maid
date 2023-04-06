@@ -52,8 +52,8 @@ fn prepare_deepl(cfg: &Config) -> DeepLApi {
 }
 
 fn prepare_quote_maker() -> make_quote::QuoteProducer<'static> {
-    let bold = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc");
-    let light = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc");
+    let bold = include_bytes!(env!("SANS_BOLD_PATH"));
+    let light = include_bytes!(env!("SANS_LIGHT_PATH"));
 
     make_quote::QuoteProducer::builder()
         .font(bold, light)

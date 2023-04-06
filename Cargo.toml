@@ -37,6 +37,9 @@ serde = { version = "1.0.138", features = ["derive"]}
 serde_json = "1.0.82"
 toml = "0.7.3"
 
+[build-dependencies]
+fontconfig = "0.6.0"
+
 [[bin]]
 name = "tgbot"
 
