@@ -636,7 +636,7 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     send_action!(@UploadPhoto; msg, bot);
     let quote_config = make_quote::ImgConfig::builder()
         .username(username)
-        .quote(quote)
+        .quote(format!("「{}」", quote))
         .avatar(avatar.as_slice())
         .build();
     let result = data.quote_maker.make_image(&quote_config);
