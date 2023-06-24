@@ -604,11 +604,23 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         .await?
         .photos;
     if photos.is_empty() || photos[0].is_empty() {
-        abort!(
-            bot,
-            msg,
-            "Reply to user have no avatar, non-avatar quote is still unimplemented"
-        );
+        let avatar = make_quote::SpooledData::TgRandom {
+            id: reply_to.id.0,
+            name: reply_to.first_name.to_string(),
+        };
+        let quote_config = make_quote::ImgConfig::builder()
+            .username(username)
+            .quote(format!("「{}」", quote))
+            .avatar(&avatar)
+            .build();
+        let result = data.quote_maker.make_image(&quote_config);
+        if let Err(err) = result {
+            abort!(bot, msg, "fail to make quote: {}", err);
+        }
+        let photo = teloxide::types::InputFile::memory(result.unwrap());
+        bot.send_photo(msg.chat.id, photo).await?;
+
+        return Ok(());
     }
 
     let avatar_id = &photos[0]
