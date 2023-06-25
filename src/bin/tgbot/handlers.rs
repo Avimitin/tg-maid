@@ -584,8 +584,13 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     let Some(reply_to_msg) = msg.reply_to_message() else {
         abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
     };
-    let Some(quote) = reply_to_msg.text() else {
-        abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+    let quote = if let Some(quote) = reply_to_msg.text() {
+        quote
+    } else {
+        let Some(quote) = reply_to_msg.caption() else {
+            abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+        };
+        quote
     };
     let Some(reply_to) = reply_to_msg.from() else {
         abort!(bot, msg, "You should reply to normal user");
