@@ -52,8 +52,8 @@ fn prepare_deepl(cfg: &Config) -> DeepLApi {
 }
 
 fn prepare_quote_maker() -> make_quote::QuoteProducer<'static> {
-    let bold = include_bytes!(env!("SANS_BOLD_PATH"));
-    let light = include_bytes!(env!("SANS_LIGHT_PATH"));
+    let bold = include_bytes!(env!("QUOTE_TEXT_FONT_PATH"));
+    let light = include_bytes!(env!("QUOTE_USERNAME_FONT_PATH"));
 
     make_quote::QuoteProducer::builder()
         .font(bold, light)

@@ -21,17 +21,33 @@
         rs-toolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
+
+        noto-fonts-cjk = pkgs.fetchFromGitHub {
+          owner = "googlefonts";
+          repo = "noto-cjk";
+          rev = "1c7ca85cb5195a3332e18c2b5cfe196ffb084e72";
+          sha256 = "sha256-541hsYHqjBYTBEg7ooGfX1+hJLo4QouQnVOIq8UzN7Y=";
+          sparseCheckout = [ "Sans/OTC" ];
+        };
       in {
-        devShells.default = pkgs.mkShell {
+        devShells.default = with pkgs; mkShell {
+          nativeBuildInputs = [
+            pkg-config
+          ];
           buildInputs = [
             # Including latest cargo,clippy,cargo-fmt
             rs-toolchain
             # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
-            pkgs.rust-analyzer-unwrapped
+            rust-analyzer-unwrapped
+            openssl
+            noto-fonts-cjk-sans
           ];
 
           # To make rust-analyzer work correctly (The path prefix issue)
           RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
+
+          QUOTE_TEXT_FONT_PATH = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
+          QUOTE_USERNAME_FONT_PATH = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
         };
       });
 }
