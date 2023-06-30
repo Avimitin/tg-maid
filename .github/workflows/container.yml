@@ -12,14 +12,18 @@ jobs:
         with:
           lfs: true
       - uses: rui314/setup-mold@v1
-      - run: |
-          sudo apt-get update -yy
-          sudo apt-get install fontconfig fonts-noto-cjk -yy
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2
+      - name: Fetch assets
+        run: |
+          mkdir -p /home/runner/work/fonts
+          git clone --depth=1 https://github.com/notofonts/noto-cjk.git /home/runner/work/fonts/noto-cjk
       - name: Build The bot
+        env:
+          QUOTE_TEXT_FONT_PATH: /home/runner/work/fonts/noto-cjk/Sans/OTC/NotoSansCJK-Black.ttc
+          QUOTE_USERNAME_FONT_PATH: /home/runner/work/fonts/noto-cjk/Sans/OTC/NotoSansCJK-Light.ttc
         run: cargo build --release
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
