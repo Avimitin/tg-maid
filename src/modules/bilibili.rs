@@ -54,8 +54,8 @@ impl RoomInfo {
             1 => Some(format!(
                 "<a href=\"{}\">{}</a> 开播了！已有 {} 人正在观看\n直播: <a href=\"{}\">{}</a>\n分区: #{}\n",
                 format_args!("https://space.bilibili.com/{}/", self.uid),
-                self.online,
                 self.username,
+                self.online,
                 format_args!("https://live.bilibili.com/{}/", self.room_id),
                 self.title,
                 self.area_v2_name
