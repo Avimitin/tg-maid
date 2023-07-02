@@ -37,15 +37,24 @@ pub struct RoomInfo {
     area_v2_name: String,
     room_id: u32,
     uid: u64,
+    online: u64,
+    keyframe: String,
+    live_time: u64,
 }
 
 impl RoomInfo {
     fn to_captions(&self, status: u8) -> Option<String> {
         match status {
-            0 => Some(format!("{} 下播了！", self.username)),
+            0 => Some(format!(
+                "{} 下播了！\n直播时间：{}h{}m",
+                self.username,
+                self.live_time / 60 / 60,
+                self.live_time / 60
+            )),
             1 => Some(format!(
-                "<a href=\"{}\">{}</a> 开播了！\n直播: <a href=\"{}\">{}</a>\n分区: #{}\n",
+                "<a href=\"{}\">{}</a> 开播了！已有 {} 人正在观看\n直播: <a href=\"{}\">{}</a>\n分区: #{}\n",
                 format_args!("https://space.bilibili.com/{}/", self.uid),
+                self.online,
                 self.username,
                 format_args!("https://live.bilibili.com/{}/", self.room_id),
                 self.title,
@@ -116,7 +125,11 @@ async fn notify_live_room_changes(
     chat_id: i64,
     room_info: &RoomInfo,
 ) -> anyhow::Result<()> {
-    let cover = reqwest::Url::parse(&room_info.cover_from_user)?;
+    let cover = if room_info.live_status == 0 {
+        reqwest::Url::parse(&room_info.keyframe)?
+    } else {
+        reqwest::Url::parse(&room_info.cover_from_user)?
+    };
 
     let caption = room_info.to_captions(room_info.live_status);
     if caption.is_none() {
