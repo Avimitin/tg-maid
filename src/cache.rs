@@ -1,5 +1,5 @@
 use redis::Commands;
-use std::hash::Hash;
+use std::{collections::HashSet, hash::Hash};
 
 pub struct Cacher(r2d2::Pool<redis::Client>);
 
@@ -74,10 +74,22 @@ impl Cacher {
     {
         let mut conn = self.get_conn();
         let event_pool_key = format!("REGISTRY_EVENT_POOL:{}", event_name);
+
+        let search = format!("SUBSCRIBE_REGISTRY:{event_name}:*");
+        let existing: HashSet<String> = conn.keys(&search)?;
+        let mut popingin: HashSet<String> = HashSet::with_capacity(existing.len());
+
         for event in events {
             let key = format!("SUBSCRIBE_REGISTRY:{}:{}", event_name, event);
-            conn.sadd(key, registrant)?;
+            conn.sadd(key.as_str(), registrant)?;
             conn.sadd(event_pool_key.as_str(), event)?;
+
+            popingin.insert(key);
+        }
+
+        let garbage: Vec<String> = (&existing - &popingin).iter().cloned().collect();
+        for event in garbage {
+            conn.srem(event, registrant)?;
         }
 
         Ok(())
@@ -112,5 +124,16 @@ fn test_event_registry() {
     let subscribers: Vec<String> = cacher.get_subscribers(name, &3_i32).unwrap();
     assert_eq!(subscribers.len(), 2);
     assert!(subscribers.iter().any(|x| x == "foo"));
+    assert!(subscribers.iter().any(|x| x == "baz"));
+
+    // Now assuming "foo" unregister event `3`
+    let relation = std::collections::HashMap::from([
+        ("foo", vec![1, 2]),
+        ("bar", vec![1, 2]),
+        ("baz", vec![3, 4, 5]),
+    ]);
+    cacher.setup_subscribe_registry(name, relation.iter());
+    let subscribers: Vec<String> = cacher.get_subscribers(name, &3_i32).unwrap();
+    assert_eq!(subscribers.len(), 1);
     assert!(subscribers.iter().any(|x| x == "baz"));
 }
