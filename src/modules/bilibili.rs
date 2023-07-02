@@ -39,17 +39,14 @@ pub struct RoomInfo {
     uid: u64,
     online: u64,
     keyframe: String,
-    live_time: u64,
 }
 
 impl RoomInfo {
     fn to_captions(&self, status: u8) -> Option<String> {
         match status {
             0 => Some(format!(
-                "{} 下播了！\n直播时间：{}h{}m",
+                "{} 下播了！",
                 self.username,
-                self.live_time / 60 / 60,
-                self.live_time / 60
             )),
             1 => Some(format!(
                 "<a href=\"{}\">{}</a> 开播了！已有 {} 人正在观看\n直播: <a href=\"{}\">{}</a>\n分区: #{}\n",
