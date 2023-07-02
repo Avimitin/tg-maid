@@ -45,6 +45,8 @@
 
           # To make rust-analyzer work correctly (The path prefix issue)
           RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
+          # To make sure cargo test run correctly
+          LD_LIBRARY_PATH = lib.makeLibraryPath [ openssl ];
 
           QUOTE_TEXT_FONT_PATH = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
           QUOTE_USERNAME_FONT_PATH = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
