@@ -1,4 +1,5 @@
 use anyhow::Result;
+use image::ImageFormat;
 use rand::Rng;
 use redis::Commands;
 use teloxide::{
@@ -6,7 +7,7 @@ use teloxide::{
     net::Download,
     payloads::SendPhotoSetters,
     prelude::*,
-    types::ParseMode,
+    types::{InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputSticker, ParseMode},
     utils::command::BotCommands,
 };
 
@@ -152,10 +153,32 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stateful_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_message_handler));
 
-    let root = dptree::entry().branch(msg_handler);
+    let callback_handler = Update::filter_callback_query().endpoint(callback_dispatcher);
+
+    let root = dptree::entry().branch(msg_handler).branch(callback_handler);
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn callback_dispatcher(cb: CallbackQuery, bot: Bot) -> anyhow::Result<()> {
+    bot.answer_callback_query(cb.id).await?;
+
+    if cb.data.is_none() || cb.message.is_none() {
+        return Ok(());
+    }
+
+    let data = cb.data.unwrap();
+    match data.as_str() {
+        "sticker.make_quote.from_photo" => {
+            add_photo_from_msg_to_sticker_set(cb.message.unwrap(), bot).await?
+        }
+        _ => return Ok(()),
+    }
+
+    // TODO: make response
+
+    Ok(())
 }
 
 async fn help_handler(msg: Message, bot: Bot) -> Result<()> {
@@ -608,6 +631,7 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         .limit(1)
         .await?
         .photos;
+    // FIXME: if replying to non-avatar user, the rest of the code won't execute
     if photos.is_empty() || photos[0].is_empty() {
         let avatar = make_quote::SpooledData::TgRandom {
             id: reply_to.id.0,
@@ -661,7 +685,94 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         abort!(bot, msg, "fail to make quote: {}", err);
     }
     let photo = teloxide::types::InputFile::memory(result.unwrap());
-    bot.send_photo(msg.chat.id, photo).await?;
+    let button = InlineKeyboardButton::callback("加入表情包", "empty");
+    let keyboard = InlineKeyboardMarkup::new(vec![vec![button]]);
+    let resp = bot
+        .send_photo(msg.chat.id, photo)
+        .reply_markup(keyboard)
+        .await?;
 
+    let button = InlineKeyboardButton::callback("加入表情包", "sticker.make_quote.from_photo");
+    let keyboard = InlineKeyboardMarkup::new(vec![vec![button]]);
+    bot.edit_message_reply_markup(resp.chat.id, resp.id)
+        .reply_markup(keyboard)
+        .await?;
+
+    Ok(())
+}
+
+async fn add_photo_from_msg_to_sticker_set(msg: Message, bot: Bot) -> anyhow::Result<()> {
+    let reaction = bot
+        .send_message(msg.chat.id, "Processing sticker...")
+        .await?;
+    let bot_info = bot.get_me().await?;
+    let sticker_owner_id = UserId(649191333);
+    let bot_name = bot_info.first_name.as_str();
+    let sticker_name = format!("quote_img_{}_by_{}", sticker_owner_id, bot_name);
+    let chat_name = if let Some(name) = msg.chat.username() {
+        name
+    } else if let Some(name) = msg.chat.first_name() {
+        name
+    } else if let Some(name) = msg.chat.last_name() {
+        name
+    } else if let Some(name) = msg.chat.title() {
+        name
+    } else {
+        abort!(
+            bot,
+            msg,
+            "Can not create sticker set for group that contains no username or title"
+        );
+    };
+    let sticker_title = format!("Quotes From {}", chat_name);
+    let Some(photos) = msg.photo() else {
+        abort!(bot, msg, "This message doesn't contain any photo");
+    };
+    let photo = photos
+        .iter()
+        .max_by(|x, y| x.width.cmp(&y.width))
+        .unwrap_or_else(|| panic!("Fail to find any of the photo to compare? This is weird"));
+    let file_id = photo.file.id.as_str();
+    let file = bot.get_file(file_id).await?;
+    let path = std::path::Path::new(&file.path).extension().unwrap();
+    let dl_path = format!("/tmp/telegram-tmpfile-{file_id}.{}", path.to_string_lossy());
+    let mut tmpfile = tokio::fs::File::create(&dl_path).await.unwrap();
+    bot.download_file(&file.path, &mut tmpfile).await?;
+    let image = image::open(&dl_path).unwrap();
+    let dl_path_copy = dl_path.clone();
+    tokio::task::block_in_place(move || {
+        let mut tmpfile = std::fs::File::create(dl_path_copy).unwrap();
+        image
+            .thumbnail(512, 512)
+            .write_to(&mut tmpfile, ImageFormat::Png)
+            .unwrap();
+    });
+    let sticker = InputSticker::Png(InputFile::file(&dl_path));
+    let sticker_set = bot.get_sticker_set(&sticker_name).await;
+    bot.edit_message_text(msg.chat.id, reaction.id, "Sticker created, sending...")
+        .await?;
+    if let Ok(sticker_set) = sticker_set {
+        bot.add_sticker_to_set(UserId(649191333), sticker_set.name, sticker, "💭")
+            .await?;
+    } else {
+        bot.create_new_sticker_set(
+            sticker_owner_id,
+            &sticker_name,
+            sticker_title,
+            sticker,
+            "💭",
+        )
+        .await?;
+    }
+
+    bot.edit_message_text(
+        msg.chat.id,
+        reaction.id,
+        format!(
+            "Image converted, see {}",
+            format_args!("https://t.me/addstickers/{}", sticker_name)
+        ),
+    )
+    .await?;
     Ok(())
 }
