@@ -176,8 +176,6 @@ async fn callback_dispatcher(cb: CallbackQuery, bot: Bot) -> anyhow::Result<()> 
         _ => return Ok(()),
     }
 
-    // TODO: make response
-
     Ok(())
 }
 
