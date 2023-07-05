@@ -734,7 +734,7 @@ async fn add_photo_from_msg_to_sticker_set(
 
     // STEP1: prepare necessary information to create/modify a sticker set
     let bot_info = bot.get_me().await?;
-    let bot_name = bot_info.first_name.as_str();
+    let bot_name = bot_info.username();
     let sticker_owner_id = match msg.chat.kind {
         ChatKind::Public(_) => {
             let chat_owner = bot
