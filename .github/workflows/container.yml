@@ -18,12 +18,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Fetch assets
         run: |
-          mkdir -p /home/runner/work/fonts
-          git clone --depth=1 https://github.com/notofonts/noto-cjk.git /home/runner/work/fonts/noto-cjk
+          mkdir -p /home/runner/work/fonts/
+          curl -fLo /home/runner/work/fonts/quote-test-font.ttc https://github.com/notofonts/noto-cjk/raw/main/Sans/OTC/NotoSansCJK-Black.ttc
+          curl -fLo /home/runner/work/fonts/quote-username-font.ttc https://github.com/notofonts/noto-cjk/raw/main/Sans/OTC/NotoSansCJK-Light.ttc
       - name: Build The bot
         env:
-          QUOTE_TEXT_FONT_PATH: /home/runner/work/fonts/noto-cjk/Sans/OTC/NotoSansCJK-Black.ttc
-          QUOTE_USERNAME_FONT_PATH: /home/runner/work/fonts/noto-cjk/Sans/OTC/NotoSansCJK-Light.ttc
+          QUOTE_TEXT_FONT_PATH: /home/runner/work/fonts/quote-test-font.ttc
+          QUOTE_USERNAME_FONT_PATH: /home/runner/work/fonts/quote-username-font.ttc
         run: cargo build --release
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
