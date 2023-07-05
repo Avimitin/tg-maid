@@ -728,8 +728,6 @@ async fn add_photo_from_msg_to_sticker_set(
             "This image is converting or is already converted into sticker. Please do not spam the bot."
         );
     }
-    redisc.set(cache_key, true)?;
-
     let reaction = bot
         .send_message(msg.chat.id, "Processing sticker...")
         .await?;
@@ -796,8 +794,6 @@ async fn add_photo_from_msg_to_sticker_set(
     // STEP4: Read the resized image and send it to telegram
     let sticker = InputSticker::Png(InputFile::file(&dl_path));
 
-    let promise = tokio::task::spawn(tokio::fs::remove_file(dl_path));
-
     let sticker_set = bot.get_sticker_set(&sticker_name).await;
     if let Ok(sticker_set) = sticker_set {
         bot.add_sticker_to_set(sticker_owner_id, sticker_set.name, sticker, "💭")
@@ -823,13 +819,14 @@ async fn add_photo_from_msg_to_sticker_set(
     )
     .await?;
 
-    let remove_status = promise.await.unwrap();
-    if let Err(err) = remove_status {
+    if let Err(err) = tokio::fs::remove_file(dl_path).await {
         abort!(
             bot,
             msg,
             "fail to remove temporary image file when converting sticker: {err}"
         );
     }
+    // Cache the operation
+    redisc.set(cache_key, true)?;
     Ok(())
 }
