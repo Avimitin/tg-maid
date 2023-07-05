@@ -813,8 +813,11 @@ async fn add_photo_from_msg_to_sticker_set(
         msg.chat.id,
         reaction.id,
         format!(
-            "Image converted, see {}",
-            format_args!("https://t.me/addstickers/{}", sticker_name)
+            "Image converted, see {}.",
+            rusty_maid::helper::Html::a(
+                &format!("https://t.me/addstickers/{}", sticker_name),
+                "sticker set"
+            )
         ),
     )
     .await?;
