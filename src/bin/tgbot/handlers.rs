@@ -7,7 +7,9 @@ use teloxide::{
     net::Download,
     payloads::SendPhotoSetters,
     prelude::*,
-    types::{InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputSticker, ParseMode},
+    types::{
+        ChatKind, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputSticker, ParseMode,
+    },
     utils::command::BotCommands,
 };
 
@@ -710,7 +712,24 @@ fn unwrap_chat_name(msg: &Message) -> Result<&str, &'static str> {
     Ok(name)
 }
 
-async fn add_photo_from_msg_to_sticker_set(msg: Message, bot: Bot) -> anyhow::Result<()> {
+async fn add_photo_from_msg_to_sticker_set(
+    cb: CallbackQuery,
+    bot: Bot,
+    data: AppData,
+) -> anyhow::Result<()> {
+    // Bound check is done by callback_dispatcher
+    let msg = cb.message.unwrap();
+    let mut redisc = data.cacher.get_conn();
+    let cache_key = format!("MAKE_QUOTE_STICKER_GENERATED:{}-{}", msg.chat.id, msg.id);
+    if redisc.get(cache_key.as_str())? {
+        abort!(
+            bot,
+            msg,
+            "This image is converting or is already converted into sticker. Please do not spam the bot."
+        );
+    }
+    redisc.set(cache_key, true)?;
+
     let reaction = bot
         .send_message(msg.chat.id, "Processing sticker...")
         .await?;
@@ -718,16 +737,20 @@ async fn add_photo_from_msg_to_sticker_set(msg: Message, bot: Bot) -> anyhow::Re
     // STEP1: prepare necessary information to create/modify a sticker set
     let bot_info = bot.get_me().await?;
     let bot_name = bot_info.first_name.as_str();
-    let chat_owner = bot
-        .get_chat_administrators(msg.chat.id)
-        .await?
-        .into_iter()
-        .find(|member| member.is_owner());
-    let Some(owner) = chat_owner else {
-        abort!(bot, msg, "Fail to find chat owner, sticker set need at least one owner");
+    let sticker_owner_id = match msg.chat.kind {
+        ChatKind::Public(_) => {
+            let chat_owner = bot
+                .get_chat_administrators(msg.chat.id)
+                .await?
+                .into_iter()
+                .find(|member| member.is_owner());
+            let Some(owner) = chat_owner else {
+                abort!(bot, msg, "Fail to find chat owner, sticker set need at least one owner");
+            };
+            owner.user.id
+        }
+        ChatKind::Private(_) => cb.from.id,
     };
-
-    let sticker_owner_id = owner.user.id;
     let sticker_name = format!("quote_img_{}_by_{}", sticker_owner_id, bot_name);
     let chat_name = unwrap_chat_name(&msg);
     if let Err(err) = chat_name {
