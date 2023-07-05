@@ -795,8 +795,8 @@ async fn add_photo_from_msg_to_sticker_set(
 
     // STEP4: Read the resized image and send it to telegram
     let sticker = InputSticker::Png(InputFile::file(&dl_path));
-    bot.edit_message_text(msg.chat.id, reaction.id, "Sticker created, sending...")
-        .await?;
+
+    let promise = tokio::task::spawn(tokio::fs::remove_file(dl_path));
 
     let sticker_set = bot.get_sticker_set(&sticker_name).await;
     if let Ok(sticker_set) = sticker_set {
@@ -822,5 +822,14 @@ async fn add_photo_from_msg_to_sticker_set(
         ),
     )
     .await?;
+
+    let remove_status = promise.await.unwrap();
+    if let Err(err) = remove_status {
+        abort!(
+            bot,
+            msg,
+            "fail to remove temporary image file when converting sticker: {err}"
+        );
+    }
     Ok(())
 }
