@@ -161,17 +161,17 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
         .branch(root)
 }
 
-async fn callback_dispatcher(cb: CallbackQuery, bot: Bot) -> anyhow::Result<()> {
-    bot.answer_callback_query(cb.id).await?;
+async fn callback_dispatcher(cb: CallbackQuery, bot: Bot, app_data: AppData) -> anyhow::Result<()> {
+    bot.answer_callback_query(&cb.id).await?;
 
     if cb.data.is_none() || cb.message.is_none() {
         return Ok(());
     }
 
-    let data = cb.data.unwrap();
-    match data.as_str() {
+    let cb_data = cb.data.as_deref().unwrap();
+    match cb_data {
         "sticker.make_quote.from_photo" => {
-            add_photo_from_msg_to_sticker_set(cb.message.unwrap(), bot).await?
+            add_photo_from_msg_to_sticker_set(cb, bot, app_data).await?
         }
         _ => return Ok(()),
     }
