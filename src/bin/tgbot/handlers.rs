@@ -820,6 +820,7 @@ async fn add_photo_from_msg_to_sticker_set(
             )
         ),
     )
+    .parse_mode(ParseMode::Html)
     .await?;
 
     if let Err(err) = tokio::fs::remove_file(dl_path).await {
