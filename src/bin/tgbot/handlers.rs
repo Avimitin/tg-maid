@@ -683,12 +683,7 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         abort!(bot, msg, "fail to make quote: {}", err);
     }
     let photo = teloxide::types::InputFile::memory(result.unwrap());
-    let button = InlineKeyboardButton::callback("加入表情包", "empty");
-    let keyboard = InlineKeyboardMarkup::new(vec![vec![button]]);
-    let resp = bot
-        .send_photo(msg.chat.id, photo)
-        .reply_markup(keyboard)
-        .await?;
+    let resp = bot.send_photo(msg.chat.id, photo).await?;
 
     let button = InlineKeyboardButton::callback("加入表情包", "sticker.make_quote.from_photo");
     let keyboard = InlineKeyboardMarkup::new(vec![vec![button]]);
