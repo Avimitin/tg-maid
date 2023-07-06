@@ -698,11 +698,10 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     let photo = create_quote(&bot, target, quote, &data).await?;
 
     send_action!(@UploadPhoto; msg, bot);
-    let resp = bot.send_photo(msg.chat.id, photo).await?;
 
     let button = InlineKeyboardButton::callback("加入表情包", "sticker.make_quote.from_photo");
     let keyboard = InlineKeyboardMarkup::new(vec![vec![button]]);
-    bot.edit_message_reply_markup(resp.chat.id, resp.id)
+    bot.send_photo(msg.chat.id, photo)
         .reply_markup(keyboard)
         .await?;
 
