@@ -715,122 +715,127 @@ fn unwrap_chat_name(msg: &Message) -> Result<&str, &'static str> {
 async fn add_photo_from_msg_to_sticker_set(
     cb: CallbackQuery,
     bot: Bot,
-    data: AppData,
+    _: AppData,
 ) -> anyhow::Result<()> {
     // Bound check is done by callback_dispatcher
     let msg = cb.message.unwrap();
-    let mut redisc = data.cacher.get_conn();
-    let cache_key = format!("MAKE_QUOTE_STICKER_GENERATED:{}-{}", msg.chat.id, msg.id);
-    if redisc.get(cache_key.as_str())? {
-        abort!(
-            bot,
-            msg,
-            "This image is converting or is already converted into sticker. Please do not spam the bot."
-        );
-    }
-    let reaction = bot
-        .send_message(msg.chat.id, "Processing sticker...")
+    let Some(keyboard) = msg.reply_markup() else {
+        // Actually this should be unreachable
+        abort!(bot, msg, "This photo is already added.");
+    };
+
+    bot.edit_message_caption(msg.chat.id, msg.id)
+        .caption("Processing image...")
         .await?;
 
-    // STEP1: prepare necessary information to create/modify a sticker set
-    let bot_info = bot.get_me().await?;
-    let bot_name = bot_info.username();
-    let sticker_owner_id = match msg.chat.kind {
-        ChatKind::Public(_) => {
-            let chat_owner = bot
-                .get_chat_administrators(msg.chat.id)
-                .await?
-                .into_iter()
-                .find(|member| member.is_owner());
-            let Some(owner) = chat_owner else {
-                abort!(bot, msg, "Fail to find chat owner, sticker set need at least one owner");
-            };
-            owner.user.id
+    let result: anyhow::Result<()> = (async{
+        // STEP1: prepare necessary information to create/modify a sticker set
+        let bot_info = bot.get_me().await?;
+        let bot_name = bot_info.username();
+        let sticker_owner_id = match msg.chat.kind {
+            ChatKind::Public(_) => {
+                let chat_owner = bot
+                    .get_chat_administrators(msg.chat.id)
+                    .await?
+                    .into_iter()
+                    .find(|member| member.is_owner());
+                let Some(owner) = chat_owner else {
+                    abort!(bot, msg, "Fail to find chat owner, sticker set need at least one owner");
+                };
+                owner.user.id
+            }
+            ChatKind::Private(_) => cb.from.id,
+        };
+        let sticker_name = format!("quote_img_{}_by_{}", sticker_owner_id, bot_name);
+        let chat_name = unwrap_chat_name(&msg);
+        if let Err(err) = chat_name {
+            abort!(bot, msg, "{err}");
         }
-        ChatKind::Private(_) => cb.from.id,
-    };
-    let sticker_name = format!("quote_img_{}_by_{}", sticker_owner_id, bot_name);
-    let chat_name = unwrap_chat_name(&msg);
-    if let Err(err) = chat_name {
-        abort!(bot, msg, "{err}");
-    }
-    let sticker_title = format!("Quotes From {}", chat_name.unwrap());
+        let sticker_title = format!("Quotes From {}", chat_name.unwrap());
 
-    // STEP2: Get photo file from telegram
-    let Some(photos) = msg.photo() else {
-        abort!(bot, msg, "This message doesn't contain any photo");
-    };
-    let file_id = photos
-        .iter()
-        .max_by(|x, y| x.width.cmp(&y.width))
-        .unwrap_or_else(|| panic!("Fail to find any of the photo to compare? This is weird"))
-        .file
-        .id
-        .to_string();
-    let file = bot.get_file(&file_id).await?;
-    // Get the file extension. It should be ".jpg", but unwrapping from the download filename is
-    // more reliable.
-    let path = std::path::Path::new(&file.path).extension().unwrap();
+        // STEP2: Get photo file from telegram
+        let Some(photos) = msg.photo() else {
+            abort!(bot, msg, "This message doesn't contain any photo");
+        };
+        let file_id = photos
+            .iter()
+            .max_by(|x, y| x.width.cmp(&y.width))
+            .unwrap_or_else(|| panic!("Fail to find any of the photo to compare? This is weird"))
+            .file
+            .id
+            .to_string();
+        let file = bot.get_file(&file_id).await?;
+        // Get the file extension. It should be ".jpg", but unwrapping from the download filename is
+        // more reliable.
+        let path = std::path::Path::new(&file.path).extension().unwrap();
 
-    // STEP3: prepare temporarily file to process image
-    let dl_path = format!("/tmp/telegram-tmpfile-{file_id}.{}", path.to_string_lossy());
-    let mut tmpfile = tokio::fs::File::create(&dl_path).await.unwrap();
-    bot.download_file(&file.path, &mut tmpfile).await?;
-    let image = image::open(&dl_path).unwrap();
-    let dl_path_copy = dl_path.clone();
+        // STEP3: prepare temporarily file to process image
+        let dl_path = format!("/tmp/telegram-tmpfile-{file_id}.{}", path.to_string_lossy());
+        let mut tmpfile = tokio::fs::File::create(&dl_path).await?;
+        bot.download_file(&file.path, &mut tmpfile).await?;
+        let image = image::open(&dl_path)?;
+        let dl_path_copy = dl_path.clone();
 
-    tokio::task::block_in_place(move || {
-        // Tokio::fs::File doesn't implement std::io::Seek, so we need to use the std::fs::File.
-        // And using operation from std::fs will probably block the whole tokio task scheduler.
-        // SO I wrapped them into the `block_in_place` function to avoid that case.
-        let mut tmpfile = std::fs::File::create(dl_path_copy).unwrap();
-        // Telegram doesn't accept JPG format, so we need to convert it into PNG format here.
-        image
-            .thumbnail(512, 512)
-            .write_to(&mut tmpfile, ImageFormat::Png)
-            .unwrap();
-    });
+        tokio::task::block_in_place(move || {
+            // Tokio::fs::File doesn't implement std::io::Seek, so we need to use the std::fs::File.
+            // And using operation from std::fs will probably block the whole tokio task scheduler.
+            // SO I wrapped them into the `block_in_place` function to avoid that case.
+            let mut tmpfile = std::fs::File::create(dl_path_copy).unwrap();
+            // Telegram doesn't accept JPG format, so we need to convert it into PNG format here.
+            image
+                .thumbnail(512, 512)
+                .write_to(&mut tmpfile, ImageFormat::Png)
+                .unwrap();
+        });
 
-    // STEP4: Read the resized image and send it to telegram
-    let sticker = InputSticker::Png(InputFile::file(&dl_path));
+        // STEP4: Read the resized image and send it to telegram
+        let sticker = InputSticker::Png(InputFile::file(&dl_path));
 
-    let sticker_set = bot.get_sticker_set(&sticker_name).await;
-    if let Ok(sticker_set) = sticker_set {
-        bot.add_sticker_to_set(sticker_owner_id, sticker_set.name, sticker, "💭")
+        bot.edit_message_caption(msg.chat.id, msg.id)
+            .caption("Image converted, sending...")
             .await?;
-    } else {
-        bot.create_new_sticker_set(
-            sticker_owner_id,
-            &sticker_name,
-            sticker_title,
-            sticker,
-            "💭",
-        )
-        .await?;
-    }
-
-    bot.edit_message_text(
-        msg.chat.id,
-        reaction.id,
-        format!(
-            "Image converted, see {}.",
-            rusty_maid::helper::Html::a(
-                &format!("https://t.me/addstickers/{}", sticker_name),
-                "sticker set"
+        let sticker_set = bot.get_sticker_set(&sticker_name).await;
+        if let Ok(sticker_set) = sticker_set {
+            bot.add_sticker_to_set(sticker_owner_id, sticker_set.name, sticker, "💭")
+            .await?;
+        } else {
+            bot.create_new_sticker_set(
+                sticker_owner_id,
+                &sticker_name,
+                sticker_title,
+                sticker,
+                "💭",
             )
-        ),
-    )
-    .parse_mode(ParseMode::Html)
-    .await?;
+            .await?;
+        }
 
-    if let Err(err) = tokio::fs::remove_file(dl_path).await {
-        abort!(
-            bot,
-            msg,
-            "fail to remove temporary image file when converting sticker: {err}"
-        );
+        bot.edit_message_caption(msg.chat.id, msg.id)
+            .caption(format!(
+                "Image converted, see {}.",
+                rusty_maid::helper::Html::a(
+                    &format!("https://t.me/addstickers/{}", sticker_name),
+                    "sticker set"
+                )
+            ))
+            .parse_mode(ParseMode::Html)
+        .await?;
+
+        if let Err(err) = tokio::fs::remove_file(dl_path).await {
+            abort!(
+                bot,
+                msg,
+                "fail to remove temporary image file when converting sticker: {err}"
+            );
+        }
+        Ok(())
+    }).await;
+
+    if let Err(err) = result {
+        bot.edit_message_caption(msg.chat.id, msg.id)
+            .caption(format!("Fail to convert this image into sticker: {err}"))
+            .reply_markup(keyboard.clone())
+            .await?;
     }
-    // Cache the operation
-    redisc.set(cache_key, true)?;
+
     Ok(())
 }
