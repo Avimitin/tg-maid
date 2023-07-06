@@ -111,6 +111,8 @@ generate_commands! {
         Roll,
         #[desc = "Make a image to record somebody's quote"]
         MakeQuote,
+        #[desc = "Delete a sticker create by this bot"]
+        DelSticker,
     }
     stateful: {
         #[desc = "Finish Collect"]
@@ -874,6 +876,25 @@ async fn add_photo_from_msg_to_sticker_set(
             .reply_markup(keyboard.clone())
             .await?;
     }
+
+    Ok(())
+}
+
+async fn del_sticker_handler(msg: Message, bot: Bot) -> anyhow::Result<()> {
+    let Some(target_sticker_msg) = msg.reply_to_message() else {
+        abort!(bot, msg, "please reply to a sticker message");
+    };
+
+    let Some(sticker) = target_sticker_msg.sticker() else {
+        abort!(bot, msg, "Please reply to a sticker message");
+    };
+
+    let result = bot.delete_sticker_from_set(&sticker.file.id).await;
+    if let Err(err) = result {
+        abort!(bot, msg, "Fail to delete this sticker: {err}");
+    }
+
+    bot.send_message(msg.chat.id, "Deleted").await?;
 
     Ok(())
 }
