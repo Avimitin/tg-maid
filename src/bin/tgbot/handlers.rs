@@ -603,54 +603,46 @@ async fn roll_handler(msg: Message, bot: Bot) -> Result<()> {
     Ok(())
 }
 
-async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
-    send_action!(@Typing; msg, bot);
-    let Some(reply_to_msg) = msg.reply_to_message() else {
-        abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+fn create_quote_from_username(
+    target: &User,
+    username: &str,
+    quote: &str,
+    data: &AppData,
+) -> anyhow::Result<InputFile> {
+    let avatar = make_quote::SpooledData::TgRandom {
+        id: target.id.0,
+        name: target.first_name.to_string(),
     };
-    let quote = if let Some(quote) = reply_to_msg.text() {
-        quote
-    } else {
-        let Some(quote) = reply_to_msg.caption() else {
-            abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
-        };
-        quote
-    };
-    let Some(reply_to) = reply_to_msg.from() else {
-        abort!(bot, msg, "You should reply to normal user");
-    };
+    let quote_config = make_quote::ImgConfig::builder()
+        .username(username)
+        .quote(format!("「{}」", quote))
+        .avatar(&avatar)
+        .build();
+    let result = data.quote_maker.make_image(&quote_config)?;
+    Ok(InputFile::memory(result))
+}
 
-    let username = if let Some(username) = &reply_to.username {
-        format!("@{username}")
-    } else {
-        reply_to.first_name.to_string()
-    };
-
-    send_action!(@UploadPhoto; msg, bot);
+async fn create_quote(
+    bot: &Bot,
+    target: &User,
+    quote: &str,
+    data: &AppData,
+) -> anyhow::Result<InputFile> {
     let photos = bot
-        .get_user_profile_photos(reply_to.id)
+        .get_user_profile_photos(target.id)
         .limit(1)
         .await?
         .photos;
-    // FIXME: if replying to non-avatar user, the rest of the code won't execute
-    if photos.is_empty() || photos[0].is_empty() {
-        let avatar = make_quote::SpooledData::TgRandom {
-            id: reply_to.id.0,
-            name: reply_to.first_name.to_string(),
-        };
-        let quote_config = make_quote::ImgConfig::builder()
-            .username(username)
-            .quote(format!("「{}」", quote))
-            .avatar(&avatar)
-            .build();
-        let result = data.quote_maker.make_image(&quote_config);
-        if let Err(err) = result {
-            abort!(bot, msg, "fail to make quote: {}", err);
-        }
-        let photo = teloxide::types::InputFile::memory(result.unwrap());
-        bot.send_photo(msg.chat.id, photo).await?;
 
-        return Ok(());
+    let username = if let Some(username) = &target.username {
+        format!("@{username}")
+    } else {
+        format!("- {}", target.first_name)
+    };
+
+    if photos.is_empty() || photos[0].is_empty() {
+        let img = create_quote_from_username(target, &username, quote, data)?;
+        return Ok(img);
     }
 
     let avatar_id = &photos[0]
@@ -675,17 +667,37 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         .get_conn()
         .set_ex(avatar_cacher_key, avatar.as_slice(), 60 * 60 * 24)?;
 
-    send_action!(@UploadPhoto; msg, bot);
     let quote_config = make_quote::ImgConfig::builder()
         .username(username)
         .quote(format!("「{}」", quote))
         .avatar(avatar.as_slice())
         .build();
-    let result = data.quote_maker.make_image(&quote_config);
-    if let Err(err) = result {
-        abort!(bot, msg, "fail to make quote: {}", err);
-    }
-    let photo = teloxide::types::InputFile::memory(result.unwrap());
+    let result = data.quote_maker.make_image(&quote_config)?;
+    Ok(InputFile::memory(result))
+}
+
+async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
+    send_action!(@Typing; msg, bot);
+    let Some(reply_to_msg) = msg.reply_to_message() else {
+        abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+    };
+
+    let quote = if let Some(quote) = reply_to_msg.text() {
+        quote
+    } else {
+        let Some(quote) = reply_to_msg.caption() else {
+            abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+        };
+        quote
+    };
+
+    let Some(target) = reply_to_msg.from() else {
+        abort!(bot, msg, "You should reply to normal user");
+    };
+
+    let photo = create_quote(&bot, target, quote, &data).await?;
+
+    send_action!(@UploadPhoto; msg, bot);
     let resp = bot.send_photo(msg.chat.id, photo).await?;
 
     let button = InlineKeyboardButton::callback("加入表情包", "sticker.make_quote.from_photo");
