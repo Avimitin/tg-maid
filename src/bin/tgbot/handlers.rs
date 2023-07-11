@@ -798,7 +798,7 @@ async fn add_or_create_sticker_set(
 async fn add_photo_from_msg_to_sticker_set(
     cb: CallbackQuery,
     bot: Bot,
-    _: AppData,
+    data: AppData,
 ) -> anyhow::Result<()> {
     // Bound check is done by callback_dispatcher
     let msg = cb.message.as_ref().unwrap();
@@ -806,6 +806,15 @@ async fn add_photo_from_msg_to_sticker_set(
         // Actually this should be unreachable
         abort!(bot, msg, "This photo is already added.");
     };
+
+    let lock_key = format!("quote_sticker_set_locker:{}", msg.id);
+    let mut redis_cli = data.cacher.get_conn();
+    let is_lock: bool = redis_cli.get(&lock_key)?;
+    if is_lock {
+        return Ok(());
+    } else {
+        redis_cli.set_ex(&lock_key, 1, 60)?;
+    }
 
     bot.edit_message_caption(msg.chat.id, msg.id)
         .caption("Processing image...")
@@ -875,6 +884,7 @@ async fn add_photo_from_msg_to_sticker_set(
             .caption(format!("Fail to convert this image into sticker: {err}"))
             .reply_markup(keyboard.clone())
             .await?;
+        redis_cli.del(lock_key)?;
     }
 
     Ok(())
