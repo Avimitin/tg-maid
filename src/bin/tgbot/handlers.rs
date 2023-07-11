@@ -809,11 +809,15 @@ async fn add_photo_from_msg_to_sticker_set(
 
     let lock_key = format!("quote_sticker_set_locker:{}", msg.id);
     let mut redis_cli = data.cacher.get_conn();
-    let is_lock: bool = redis_cli.get(&lock_key)?;
-    if is_lock {
+    let unhandle: bool = redis::cmd("SET")
+        .arg(&lock_key) // key
+        .arg(1) // val
+        .arg("NX") // NX
+        .arg("EX") // EX
+        .arg(60) // SECONDS
+        .query(&mut redis_cli)?;
+    if !unhandle {
         return Ok(());
-    } else {
-        redis_cli.set_ex(&lock_key, 1, 60)?;
     }
 
     bot.edit_message_caption(msg.chat.id, msg.id)
