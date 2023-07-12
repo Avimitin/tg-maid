@@ -22,6 +22,7 @@ pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData, conf
         .name("BilibiliLiveRoomWatcher")
         .bot(bot)
         .data(data)
+        .heartbeat_interval(600) // 10 mins
         .build()
         .setup_subscribe_registry(config.bili_live_room_event.iter())
         .start_with_task(watch_and_response);
