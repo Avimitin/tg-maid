@@ -22,6 +22,12 @@
           extensions = [ "rust-src" ];
         };
 
+        minimal-toolchain = pkgs.rust-bin.stable.latest.minimal;
+        rs-env = pkgs.makeRustPlatform {
+          cargo = minimal-toolchain;
+          rustc = minimal-toolchain;
+        };
+
         noto-fonts-cjk = pkgs.fetchFromGitHub {
           owner = "googlefonts";
           repo = "noto-cjk";
@@ -29,29 +35,51 @@
           sha256 = "sha256-541hsYHqjBYTBEg7ooGfX1+hJLo4QouQnVOIq8UzN7Y=";
           sparseCheckout = [ "Sans/OTC" ];
         };
+
+        # Compile time dependecies
+        nativeBuildInputs = with pkgs; [ pkg-config mold ];
+        # Build time dependecies
+        buildInputs = with pkgs; [ openssl ffmpeg yt-dlp ];
+
+        QUOTE_TEXT_FONT_PATH =
+          "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
+        QUOTE_USERNAME_FONT_PATH =
+          "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
       in {
-        devShells.default = with pkgs; mkShell {
-          nativeBuildInputs = [
-            pkg-config
-          ];
-          buildInputs = [
-            # Including latest cargo,clippy,cargo-fmt
-            rs-toolchain
-            # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
-            rust-analyzer-unwrapped
-            openssl
-            noto-fonts-cjk-sans
-            ffmpeg
-            yt-dlp
-          ];
+        # nix develop
+        devShells.default = with pkgs;
+          mkShell {
+            buildInputs = buildInputs ++ [
+              # Including latest cargo,clippy,cargo-fmt
+              rs-toolchain
+              # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
+              rust-analyzer-unwrapped
+            ];
 
-          # To make rust-analyzer work correctly (The path prefix issue)
-          RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
-          # To make sure cargo test run correctly
-          LD_LIBRARY_PATH = lib.makeLibraryPath [ openssl ];
+            # To make rust-analyzer work correctly (The path prefix issue)
+            RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
+            # To make sure cargo test run correctly
+            LD_LIBRARY_PATH = lib.makeLibraryPath [ openssl ];
 
-          QUOTE_TEXT_FONT_PATH = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
-          QUOTE_USERNAME_FONT_PATH = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
+            inherit nativeBuildInputs QUOTE_TEXT_FONT_PATH
+              QUOTE_USERNAME_FONT_PATH;
+          };
+        # nix build
+        packages.default = rs-env.buildRustPackage {
+          pname = "tg-maid";
+          version = "unstable-2023-07-13";
+          src = ./.;
+
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            allowBuiltinFetchGit = true;
+          };
+
+          # Some test require proper env, which is not available during build
+          doCheck = false;
+
+          inherit nativeBuildInputs buildInputs QUOTE_TEXT_FONT_PATH
+            QUOTE_USERNAME_FONT_PATH;
         };
       });
 }
