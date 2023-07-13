@@ -693,7 +693,11 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         quote
     };
 
-    let Some(target) = reply_to_msg.from() else {
+    let target = if let Some(target) = reply_to_msg.forward_from_user() {
+        target
+    } else if let Some(target) = reply_to_msg.from() {
+        target
+    } else {
         abort!(bot, msg, "You should reply to normal user");
     };
 
