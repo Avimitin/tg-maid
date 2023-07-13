@@ -15,6 +15,8 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        version = "unstable-2023-07-14";
+
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
 
@@ -45,6 +47,22 @@
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
         QUOTE_USERNAME_FONT_PATH =
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
+
+        defaultBuildTarget = rs-env.buildRustPackage {
+          pname = "tg-maid";
+          src = ./.;
+
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            allowBuiltinFetchGit = true;
+          };
+
+          # Some test require proper env, which is not available during build
+          doCheck = false;
+
+          inherit version nativeBuildInputs buildInputs QUOTE_TEXT_FONT_PATH
+            QUOTE_USERNAME_FONT_PATH;
+        };
       in {
         # nix develop
         devShells.default = with pkgs;
@@ -65,21 +83,22 @@
               QUOTE_USERNAME_FONT_PATH;
           };
         # nix build
-        packages.default = rs-env.buildRustPackage {
-          pname = "tg-maid";
-          version = "unstable-2023-07-13";
-          src = ./.;
+        packages.default = defaultBuildTarget;
 
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-            allowBuiltinFetchGit = true;
+        # nix build .#docker
+        packages.docker = pkgs.dockerTools.buildImage {
+          name = "ghcr.io/Avimitin/tg-maid";
+          tag = version;
+
+          config = {
+            cmd = [ "${defaultBuildTarget}/bin/tgbot" ];
+            healthcheck = {
+              test = [
+                "CMD-SHELL"
+                "${pkgs.netcat-openbsd}/bin/nc -z 127.0.0.1 11451 || exit 1"
+              ];
+            };
           };
-
-          # Some test require proper env, which is not available during build
-          doCheck = false;
-
-          inherit nativeBuildInputs buildInputs QUOTE_TEXT_FONT_PATH
-            QUOTE_USERNAME_FONT_PATH;
         };
       });
 }
