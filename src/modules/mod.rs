@@ -10,6 +10,7 @@ pub mod nsfw;
 pub mod osu;
 pub mod piggy;
 pub mod weather;
+pub mod ytd;
 
 // Every module should provide a function that turn user input to [`Sendable`]
 use reqwest::IntoUrl;

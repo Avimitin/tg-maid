@@ -41,6 +41,8 @@
             rust-analyzer-unwrapped
             openssl
             noto-fonts-cjk-sans
+            ffmpeg
+            yt-dlp
           ];
 
           # To make rust-analyzer work correctly (The path prefix issue)

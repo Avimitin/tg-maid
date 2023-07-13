@@ -113,6 +113,8 @@ generate_commands! {
         MakeQuote,
         #[desc = "Delete a sticker create by this bot"]
         DelSticker,
+        #[desc = "Download video through yt-dlp"]
+        Ytdlp,
     }
     stateful: {
         #[desc = "Finish Collect"]
@@ -913,6 +915,61 @@ async fn del_sticker_handler(msg: Message, bot: Bot) -> anyhow::Result<()> {
     }
 
     bot.send_message(msg.chat.id, "Deleted").await?;
+
+    Ok(())
+}
+
+async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<()> {
+    let user_id = msg.from().expect("Unreachable").id;
+    let rate_limit_key = format!("YTDLP_DOWNLOAD:USER:{}", user_id);
+    let mut redis_cli = data.cacher.get_conn();
+    let unhandle: bool = redis::cmd("SET")
+        .arg(&rate_limit_key) // key
+        .arg(1) // val
+        .arg("NX") // NX
+        .arg("EX") // EX
+        .arg(60) // SECONDS
+        .query(&mut redis_cli)?;
+    if !unhandle {
+        abort!(
+            bot,
+            msg,
+            "You have requested download in 1mins, please wait."
+        );
+    }
+
+    let text = msg.text().expect("Unreachable");
+    let payload = text.split(' ').collect::<Vec<_>>();
+    if payload.len() < 2 {
+        abort!(bot, msg, "No URL given");
+    }
+
+    let url = payload[1];
+    let result = modules::ytd::YtdlpVideo::dl_from_url(url).await;
+
+    if let Err(err) = result {
+        abort!(bot, msg, "{err}");
+    }
+
+    send_action!(@UploadVideo; msg, bot);
+
+    let video = result.unwrap();
+    let result = bot
+        .send_video(msg.chat.id, InputFile::file(&video.video_filepath))
+        .caption(video.as_tg_video_caption())
+        .parse_mode(ParseMode::Html)
+        .width(video.width)
+        .height(video.height)
+        .thumb(InputFile::file(&video.thumbnail_filepath))
+        .await;
+
+    let clean_result = video.clean().await;
+    if let Err(err) = clean_result {
+        abort!(bot, msg, "Clean fail: {err}");
+    }
+
+    // handle send result later to make sure video is indeed clear
+    result?;
 
     Ok(())
 }
