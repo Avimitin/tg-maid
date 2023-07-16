@@ -38,10 +38,10 @@
           sparseCheckout = [ "Sans/OTC" ];
         };
 
-        # Compile time dependecies
-        nativeBuildInputs = with pkgs; [ pkg-config mold ];
-        # Build time dependecies
-        buildInputs = with pkgs; [ openssl ffmpeg yt-dlp ];
+        # Build time & Runtime dependencies
+        nativeBuildInputs = with pkgs; [ pkg-config mold ffmpeg yt-dlp ];
+        # Link time dependencies
+        buildInputs = with pkgs; [ openssl ];
 
         QUOTE_TEXT_FONT_PATH =
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
@@ -67,7 +67,7 @@
         # nix develop
         devShells.default = with pkgs;
           mkShell {
-            buildInputs = buildInputs ++ [
+            nativeBuildInputs = nativeBuildInputs ++ [
               # Including latest cargo,clippy,cargo-fmt
               rs-toolchain
               # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
@@ -79,7 +79,7 @@
             # To make sure cargo test run correctly
             LD_LIBRARY_PATH = lib.makeLibraryPath [ openssl ];
 
-            inherit nativeBuildInputs QUOTE_TEXT_FONT_PATH
+            inherit buildInputs QUOTE_TEXT_FONT_PATH
               QUOTE_USERNAME_FONT_PATH;
           };
         # nix build
