@@ -21,17 +21,14 @@
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
 
+        #
+        # Dependencies
+        #
         # Custom Rust toolchains.
         # Default toolchains includes latest cargo,clippy,cargo-fmt..., 
-        # and the minimal toolchains contains only necessary build tools
         rs-toolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
-        rs-platform = pkgs.makeRustPlatform {
-          cargo = rs-toolchain;
-          rustc = rs-toolchain;
-        };
-
         # Font data dependencies
         noto-fonts-cjk = pkgs.fetchFromGitHub {
           owner = "googlefonts";
@@ -49,10 +46,13 @@
         nativeBuildInputs = with pkgs; [ pkg-config mold ];
         # Link time dependencies
         buildInputs = with pkgs; [ openssl ];
-        # Let the final binary link to openssl correctly
-        LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
 
-        my-maid-pkg = rs-platform.buildRustPackage {
+        # Default build target
+        rs-platform = pkgs.makeRustPlatform {
+          cargo = rs-toolchain;
+          rustc = rs-toolchain;
+        };
+        tg-maid = rs-platform.buildRustPackage {
           pname = "tg-maid";
           src = ./.;
 
@@ -82,36 +82,16 @@
 
             # To make rust-analyzer work correctly (The path prefix issue)
             RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
+            # Let cargo build/test run correctly
+            LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
 
-            inherit buildInputs LD_LIBRARY_PATH QUOTE_TEXT_FONT_PATH
+            inherit buildInputs QUOTE_TEXT_FONT_PATH
               QUOTE_USERNAME_FONT_PATH;
           };
         # nix build
-        packages.default = my-maid-pkg;
+        packages.default = tg-maid;
 
         # nix build .#docker
-        packages.docker = with pkgs; dockerTools.streamLayeredImage {
-          name = "ghcr.io/Avimitin/tg-maid";
-          tag = version;
-
-          contents = [
-             cacert
-             redis
-             yt-dlp
-             ffmpeg
-             my-maid-pkg
-          ];
-
-          config = {
-            env = [ ''LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'' ];
-            cmd = [ "${my-maid-pkg}/bin/tgbot" ];
-            healthcheck = {
-              test = [
-                "CMD-SHELL"
-                "${netcat-openbsd}/bin/nc -z 127.0.0.1 11451 || exit 1"
-              ];
-            };
-          };
-        };
+        packages.docker = import ./nix/docker-image.nix { inherit pkgs version tg-maid; };
       });
 }
