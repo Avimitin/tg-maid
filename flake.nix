@@ -78,6 +78,10 @@
               yt-dlp
               # Dependency for yt-dlp
               ffmpeg
+              # A temporary DB
+              redis
+              # In case someone want to commit inside the nix shell but got a version mismatch openssl
+              git
             ];
 
             # To make rust-analyzer work correctly (The path prefix issue)
