@@ -47,7 +47,7 @@ impl Config {
         };
 
         if !file_path.exists() {
-            anyhow::bail!("No config file found");
+            anyhow::bail!("Config file not found in {file_path:?}");
         }
         let content = fs::read_to_string(file_path).with_context(|| "fail to read config file")?;
 
