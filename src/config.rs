@@ -21,11 +21,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn try_get_config() -> anyhow::Result<path::PathBuf> {
-        if let Ok(cfg_path) = env::var("TG_MAID_CFG_PATH") {
-            return Ok(path::PathBuf::from(cfg_path));
-        };
-
+    fn get_config_dir() -> anyhow::Result<path::PathBuf> {
         let config_dir = if let Ok(xdg_path) = env::var("XDG_CONFIG_HOME") {
             path::PathBuf::from(&xdg_path)
         } else {
@@ -42,8 +38,8 @@ impl Config {
     }
 
     pub fn from_path() -> anyhow::Result<Self> {
-        let file_path = Self::try_get_config()
-            .with_context(|| "fail to open config")?
+        let file_path = Self::get_config_dir()
+            .with_context(|| "fail to open config directory")?
             .join("config.toml");
         if !file_path.exists() {
             anyhow::bail!("No config file found");
