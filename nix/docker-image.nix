@@ -43,6 +43,7 @@ pkgs.dockerTools.streamLayeredImage {
     mkdir -p ${workdir}
     cp ${bot_config} ${bot_cfg_path}
   '';
+  enableFakechroot = true;
 
   config = {
     env = [
