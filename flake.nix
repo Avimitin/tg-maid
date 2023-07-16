@@ -39,7 +39,7 @@
         };
 
         # Build time & Runtime dependencies
-        nativeBuildInputs = with pkgs; [ pkg-config mold ffmpeg yt-dlp ];
+        nativeBuildInputs = with pkgs; [ pkg-config mold ];
         # Link time dependencies
         buildInputs = with pkgs; [ openssl ];
 
@@ -47,6 +47,8 @@
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
         QUOTE_USERNAME_FONT_PATH =
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
+
+        LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
 
         defaultBuildTarget = rs-env.buildRustPackage {
           pname = "tg-maid";
@@ -72,30 +74,40 @@
               rs-toolchain
               # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
               rust-analyzer-unwrapped
+              yt-dlp
+              # Dependency for yt-dlp
+              ffmpeg
             ];
 
             # To make rust-analyzer work correctly (The path prefix issue)
             RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
-            # To make sure cargo test run correctly
-            LD_LIBRARY_PATH = lib.makeLibraryPath [ openssl ];
 
-            inherit buildInputs QUOTE_TEXT_FONT_PATH
+            inherit buildInputs LD_LIBRARY_PATH QUOTE_TEXT_FONT_PATH
               QUOTE_USERNAME_FONT_PATH;
           };
         # nix build
         packages.default = defaultBuildTarget;
 
         # nix build .#docker
-        packages.docker = pkgs.dockerTools.buildImage {
+        packages.docker = with pkgs; dockerTools.streamLayeredImage {
           name = "ghcr.io/Avimitin/tg-maid";
           tag = version;
 
+          contents = [
+             cacert
+             redis
+             yt-dlp
+             ffmpeg
+             defaultBuildTarget
+          ];
+
           config = {
+            env = [ ''LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'' ];
             cmd = [ "${defaultBuildTarget}/bin/tgbot" ];
             healthcheck = {
               test = [
                 "CMD-SHELL"
-                "${pkgs.netcat-openbsd}/bin/nc -z 127.0.0.1 11451 || exit 1"
+                "${netcat-openbsd}/bin/nc -z 127.0.0.1 11451 || exit 1"
               ];
             };
           };
