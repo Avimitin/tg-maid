@@ -38,9 +38,14 @@ impl Config {
     }
 
     pub fn from_path() -> anyhow::Result<Self> {
-        let file_path = Self::get_config_dir()
-            .with_context(|| "fail to open config directory")?
-            .join("config.toml");
+        let file_path = if let Ok(cfg_path) = env::var("TG_MAID_CFG_PATH") {
+            path::PathBuf::from(cfg_path)
+        } else {
+            Self::get_config_dir()
+                .with_context(|| "fail to open config directory")?
+                .join("config.toml")
+        };
+
         if !file_path.exists() {
             anyhow::bail!("No config file found");
         }
