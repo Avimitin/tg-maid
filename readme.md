@@ -108,7 +108,27 @@ cargo build --release
 
 ### Nix flake
 
-...unimplemented
+If you don't know how to setup the build environment,
+you can follow the [`Nix` installation guide](https://nixos.org/manual/nix/stable/installation/installing-binary.html),
+or install nix through your system package manager:
+
+```bash
+pacman -S nix
+```
+
+Then enable the [`flakes`](https://nixos.wiki/wiki/Flakes#Enable_flakes) feature
+and run the following command to get the development shell:
+
+```bash
+nix develop
+```
+
+You can now use your favourite editor to start contributing to this project:
+
+```bash
+$EDITOR .
+```
+
 
 ## TODO
 
@@ -117,4 +137,4 @@ cargo build --release
 - [x] Implement the make quote functionality
 - [ ] Get random restaurant suggestion from DianPing
 - [x] New command `/roll [range]`
-- [ ] Add Nix flake
+- [x] Add Nix flake
