@@ -17,19 +17,23 @@
       let
         version = "unstable-2023-07-14";
 
+        # Rust overlays for the Nixpkgs
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
 
-        rs-toolchain = pkgs.rust-bin.stable.latest.default.override {
+        # Custom Rust toolchains.
+        # Default toolchains includes latest cargo,clippy,cargo-fmt..., 
+        # and the minimal toolchains contains only necessary build tools
+        rs-toolchain = pkgs.rust-bin.stable.latest;
+        rust-runtime = rs-toolchain.default.override {
           extensions = [ "rust-src" ];
         };
-
-        minimal-toolchain = pkgs.rust-bin.stable.latest.minimal;
         rs-env = pkgs.makeRustPlatform {
-          cargo = minimal-toolchain;
-          rustc = minimal-toolchain;
+          cargo = rs-toolchain.minimal;
+          rustc = rs-toolchain.minimal;
         };
 
+        # Font data dependencies
         noto-fonts-cjk = pkgs.fetchFromGitHub {
           owner = "googlefonts";
           repo = "noto-cjk";
@@ -37,20 +41,19 @@
           sha256 = "sha256-541hsYHqjBYTBEg7ooGfX1+hJLo4QouQnVOIq8UzN7Y=";
           sparseCheckout = [ "Sans/OTC" ];
         };
-
-        # Build time & Runtime dependencies
-        nativeBuildInputs = with pkgs; [ pkg-config mold ];
-        # Link time dependencies
-        buildInputs = with pkgs; [ openssl ];
-
         QUOTE_TEXT_FONT_PATH =
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
         QUOTE_USERNAME_FONT_PATH =
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
 
+        # Build time & Runtime dependencies
+        nativeBuildInputs = with pkgs; [ pkg-config mold ];
+        # Link time dependencies
+        buildInputs = with pkgs; [ openssl ];
+        # Let the final binary link to openssl correctly
         LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
 
-        defaultBuildTarget = rs-env.buildRustPackage {
+        my-maid-pkg = rs-env.buildRustPackage {
           pname = "tg-maid";
           src = ./.;
 
@@ -70,8 +73,7 @@
         devShells.default = with pkgs;
           mkShell {
             nativeBuildInputs = nativeBuildInputs ++ [
-              # Including latest cargo,clippy,cargo-fmt
-              rs-toolchain
+              rust-runtime
               # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
               rust-analyzer-unwrapped
               yt-dlp
@@ -86,7 +88,7 @@
               QUOTE_USERNAME_FONT_PATH;
           };
         # nix build
-        packages.default = defaultBuildTarget;
+        packages.default = my-maid-pkg;
 
         # nix build .#docker
         packages.docker = with pkgs; dockerTools.streamLayeredImage {
@@ -98,12 +100,12 @@
              redis
              yt-dlp
              ffmpeg
-             defaultBuildTarget
+             my-maid-pkg
           ];
 
           config = {
             env = [ ''LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'' ];
-            cmd = [ "${defaultBuildTarget}/bin/tgbot" ];
+            cmd = [ "${my-maid-pkg}/bin/tgbot" ];
             healthcheck = {
               test = [
                 "CMD-SHELL"
