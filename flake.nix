@@ -24,13 +24,12 @@
         # Custom Rust toolchains.
         # Default toolchains includes latest cargo,clippy,cargo-fmt..., 
         # and the minimal toolchains contains only necessary build tools
-        rs-toolchain = pkgs.rust-bin.stable.latest;
-        rust-runtime = rs-toolchain.default.override {
+        rs-toolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
-        rs-env = pkgs.makeRustPlatform {
-          cargo = rs-toolchain.minimal;
-          rustc = rs-toolchain.minimal;
+        rs-platform = pkgs.makeRustPlatform {
+          cargo = rs-toolchain;
+          rustc = rs-toolchain;
         };
 
         # Font data dependencies
@@ -53,7 +52,7 @@
         # Let the final binary link to openssl correctly
         LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
 
-        my-maid-pkg = rs-env.buildRustPackage {
+        my-maid-pkg = rs-platform.buildRustPackage {
           pname = "tg-maid";
           src = ./.;
 
@@ -73,7 +72,7 @@
         devShells.default = with pkgs;
           mkShell {
             nativeBuildInputs = nativeBuildInputs ++ [
-              rust-runtime
+              rs-toolchain
               # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
               rust-analyzer-unwrapped
               yt-dlp
