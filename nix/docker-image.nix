@@ -39,8 +39,7 @@ pkgs.dockerTools.streamLayeredImage {
      ffmpeg
   ];
 
-  runAsRoot = ''
-    #!${pkgs.runtimeShell}
+  fakeRootCommands = ''
     mkdir -p ${workdir}
     cp ${bot_config} ${bot_cfg_path}
   '';
