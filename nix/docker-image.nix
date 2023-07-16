@@ -37,7 +37,6 @@ pkgs.dockerTools.streamLayeredImage {
      redis
      yt-dlp
      ffmpeg
-     my-maid-pkg
   ];
 
   runAsRoot = ''
