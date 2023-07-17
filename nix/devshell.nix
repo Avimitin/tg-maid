@@ -51,6 +51,9 @@ pkgs.mkShell {
     EXIT
 
     # Add cli wrapper
-    alias rcli="redis-cli -h 127.0.0.1 -p 16379"
+    alias rcli="redis-cli -h 127.0.0.1 -p $port"
+
+    # clean up temporary variable
+    unset workdir port pidfile
   '';
 }
