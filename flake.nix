@@ -101,9 +101,9 @@
           inherit pkgs tg-maid;
         };
 
-        # nix run .#build-push-docker-img
-        apps.build-push-docker-img = let
-          script = import ./nix/finalize-image.nix {
+        # nix run .#ci
+        apps.ci = let
+          ci-script = import ./nix/finalize-image.nix {
             name = docker_img_name;
             tag = version;
 
@@ -114,7 +114,7 @@
           };
         in {
           type = "app";
-          program = "${script}";
+          program = "${ci-script}";
         };
       });
 }
