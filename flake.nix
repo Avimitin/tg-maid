@@ -43,7 +43,7 @@
           "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
 
         # Build time & Runtime dependencies
-        nativeBuildInputs = with pkgs; [ pkg-config mold ];
+        nativeBuildInputs = with pkgs; [ pkg-config ];
         # Link time dependencies
         buildInputs = with pkgs; [ openssl ];
 
@@ -86,8 +86,6 @@
 
             # To make rust-analyzer work correctly (The path prefix issue)
             RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
-            # Let cargo build/test run correctly
-            LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
 
             inherit buildInputs QUOTE_TEXT_FONT_PATH
               QUOTE_USERNAME_FONT_PATH;

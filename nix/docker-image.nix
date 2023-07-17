@@ -1,8 +1,5 @@
 { pkgs, version, tg-maid }:
 let
-  # Bot links to openssl at build time
-  LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [ openssl ];
-
   bot_config = pkgs.writeTextFile {
     name = "config.toml";
     text = ''
@@ -48,7 +45,6 @@ pkgs.dockerTools.streamLayeredImage {
 
   config = {
     env = [
-      "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
       "TG_MAID_CFG_PATH=${bot_cfg_path}"
     ];
     cmd = [ "${tg-maid}/bin/tgbot" ];
