@@ -84,7 +84,7 @@ impl YtdlpVideo {
                 self.description.chars().take(100).collect::<String>()
             )
         } else {
-            unimplemented!()
+            format!("Unimplement platform")
         }
     }
 

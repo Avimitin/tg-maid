@@ -945,13 +945,17 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
     }
 
     let url = payload[1];
+    let resp = bot
+        .send_message(msg.chat.id, "Downloading video...")
+        .await?;
     let result = modules::ytd::YtdlpVideo::dl_from_url(url).await;
 
     if let Err(err) = result {
         abort!(bot, msg, "{err}");
     }
 
-    send_action!(@UploadVideo; msg, bot);
+    bot.edit_message_text(msg.chat.id, resp.id, "Uploading video...")
+        .await?;
 
     let video = result.unwrap();
     let result = bot
@@ -967,6 +971,8 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
     if let Err(err) = clean_result {
         abort!(bot, msg, "Clean fail: {err}");
     }
+
+    bot.delete_message(msg.chat.id, resp.id).await?;
 
     // handle send result later to make sure video is indeed clear
     result?;
