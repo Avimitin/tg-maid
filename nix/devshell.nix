@@ -49,5 +49,8 @@ pkgs.mkShell {
         [[ -d $workdir ]] && rm -r $workdir
       " \
     EXIT
+
+    # Add cli wrapper
+    alias rcli="redis-cli -h 127.0.0.1 -p 16379"
   '';
 }
