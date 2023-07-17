@@ -15,6 +15,8 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        pname = "tg-maid";
+        docker_img_name = "ghcr.io/avimitin/${pname}";
         version = "unstable-2023-07-14";
 
         # Rust overlays for the Nixpkgs
@@ -53,7 +55,6 @@
           rustc = rs-toolchain;
         };
         tg-maid = rs-platform.buildRustPackage {
-          pname = "tg-maid";
           src = ./.;
 
           cargoLock = {
@@ -64,8 +65,8 @@
           # Some test require proper env, which is not available during build
           doCheck = false;
 
-          inherit version nativeBuildInputs buildInputs QUOTE_TEXT_FONT_PATH
-            QUOTE_USERNAME_FONT_PATH;
+          inherit pname version nativeBuildInputs buildInputs
+            QUOTE_TEXT_FONT_PATH QUOTE_USERNAME_FONT_PATH;
         };
       in {
         # nix develop
@@ -87,13 +88,33 @@
             # To make rust-analyzer work correctly (The path prefix issue)
             RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
 
-            inherit buildInputs QUOTE_TEXT_FONT_PATH
-              QUOTE_USERNAME_FONT_PATH;
+            inherit buildInputs QUOTE_TEXT_FONT_PATH QUOTE_USERNAME_FONT_PATH;
           };
         # nix build
         packages.default = tg-maid;
 
         # nix build .#docker
-        packages.docker = import ./nix/docker-image.nix { inherit pkgs version tg-maid; };
+        packages.docker = import ./nix/docker-image.nix {
+          name = docker_img_name;
+          tag = version;
+
+          inherit pkgs tg-maid;
+        };
+
+        # nix run .#build-push-docker-img
+        apps.build-push-docker-img = let
+          script = import ./nix/finalize-image.nix {
+            name = docker_img_name;
+            tag = version;
+
+            do_push = true;
+            is_latest = true;
+
+            inherit pkgs;
+          };
+        in {
+          type = "app";
+          program = "${script}";
+        };
       });
 }
