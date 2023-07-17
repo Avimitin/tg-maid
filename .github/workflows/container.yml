@@ -17,4 +17,4 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build & Push
-        run: ./build-docker-image.bash
+        run: PUSH_IMG=1 ./build-docker-image.bash

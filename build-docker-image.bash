@@ -3,8 +3,7 @@
 set -e
 set -o pipefail;
 
-REPO=""
-IMAGE=""
+PUSH_IMG=${PUSH_IMG:-0}
 
 build() {
   local layer_script=$(nix build --print-out-paths '.#docker')
@@ -14,13 +13,15 @@ build() {
   local repo=$(echo $image | cut -d':' -f1)
   docker image tag "$image" "$repo:latest"
 
-  REPO=$repo
-  IMAGE=$image
+  if (( $PUSH_IMG )); then
+    push $image
+    push "$repo:latest"
+  fi
 }
 
 push() {
-  docker push $IMAGE
-  docker push "$REPO:latest"
+  local image=$1; shift
+  docker push $image
 }
 
-build && push
+build
