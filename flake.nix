@@ -15,6 +15,7 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        # Meta
         pname = "tg-maid";
         docker_img_name = "ghcr.io/avimitin/${pname}";
         version = "unstable-2023-07-14";
@@ -28,9 +29,10 @@
         #
         # Custom Rust toolchains.
         # Default toolchains includes latest cargo,clippy,cargo-fmt..., 
-        rs-toolchain = pkgs.rust-bin.stable.latest.default.override {
+        rust-toolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
+
         # Font data dependencies
         noto-fonts-cjk = pkgs.fetchFromGitHub {
           owner = "googlefonts";
@@ -39,23 +41,25 @@
           sha256 = "sha256-541hsYHqjBYTBEg7ooGfX1+hJLo4QouQnVOIq8UzN7Y=";
           sparseCheckout = [ "Sans/OTC" ];
         };
-        QUOTE_TEXT_FONT_PATH =
-          "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
-        QUOTE_USERNAME_FONT_PATH =
-          "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
-
-        # Build time & Runtime dependencies
-        nativeBuildInputs = with pkgs; [ pkg-config ];
-        # Link time dependencies
-        buildInputs = with pkgs; [ openssl ];
+        fonts = {
+          bold = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
+          light = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
+        };
 
         # Default build target
-        rs-platform = pkgs.makeRustPlatform {
-          cargo = rs-toolchain;
-          rustc = rs-toolchain;
+        rust = pkgs.makeRustPlatform {
+          cargo = rust-toolchain;
+          rustc = rust-toolchain;
         };
-        tg-maid = rs-platform.buildRustPackage {
+
+        # The default package
+        tg-maid = rust.buildRustPackage {
           src = ./.;
+
+          # Build time & Runtime dependencies
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          # Link time dependencies
+          buildInputs = [ pkgs.openssl ];
 
           cargoLock = {
             lockFile = ./Cargo.lock;
@@ -65,33 +69,32 @@
           # Some test require proper env, which is not available during build
           doCheck = false;
 
-          inherit pname version nativeBuildInputs buildInputs
-            QUOTE_TEXT_FONT_PATH QUOTE_USERNAME_FONT_PATH;
+          # Export font path
+          QUOTE_TEXT_FONT_PATH = fonts.bold;
+          QUOTE_USERNAME_FONT_PATH = fonts.light;
+
+          inherit pname version;
+        };
+
+        # Generate script for GitHub Action to run
+        ci-script = import ./nix/finalize-image.nix {
+          name = docker_img_name;
+          tag = version;
+
+          # Do docker push
+          do_push = true;
+          # Also tag image as latest
+          is_latest = true;
+
+          inherit pkgs;
         };
       in {
-        # nix develop
-        devShells.default = with pkgs;
-          mkShell {
-            nativeBuildInputs = nativeBuildInputs ++ [
-              rs-toolchain
-              # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
-              rust-analyzer-unwrapped
-              yt-dlp
-              # Dependency for yt-dlp
-              ffmpeg
-              # A temporary DB
-              redis
-              # In case someone want to commit inside the nix shell but got a version mismatch openssl
-              git
-            ];
-
-            # To make rust-analyzer work correctly (The path prefix issue)
-            RUST_SRC_PATH = "${rs-toolchain}/lib/rustlib/src/rust/library";
-
-            inherit buildInputs QUOTE_TEXT_FONT_PATH QUOTE_USERNAME_FONT_PATH;
-          };
         # nix build
         packages.default = tg-maid;
+
+        # nix develop
+        devShells.default =
+          import ./nix/devshell.nix { inherit pkgs fonts rust-toolchain; };
 
         # nix build .#docker
         packages.docker = import ./nix/docker-image.nix {
@@ -102,17 +105,7 @@
         };
 
         # nix run .#ci
-        apps.ci = let
-          ci-script = import ./nix/finalize-image.nix {
-            name = docker_img_name;
-            tag = version;
-
-            do_push = true;
-            is_latest = true;
-
-            inherit pkgs;
-          };
-        in {
+        apps.ci = {
           type = "app";
           program = "${ci-script}";
         };
