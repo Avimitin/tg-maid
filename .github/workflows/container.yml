@@ -3,6 +3,9 @@ name: Build Docker Image
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'example*'
+      - 'readme.md'
 
 jobs:
   Build:
