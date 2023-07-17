@@ -2,22 +2,23 @@
 
 My utility bot.
 
-## Run with docker (Recommended)
+## Run with docker-compose (Recommended)
 
 ```bash
 curl -SL https://raw.githubusercontent.com/Avimitin/tg-butler/master/example.docker-compose.yml \
      -o docker-compose.yml
-mkdir appdata
+mkdir app
 # Detail configuration see below
-vim ./appdata/config.toml
+vim ./app/config.toml
 docker-compose up -d
 ```
 
 ## Configuration
 
 The bot will try to read configuration from a `config.toml` file under directory
-`$XDG_CONFIG_HOME/tg_maid` or `$HOME/.config/tg_maid`. The content of the file
-should followed the [TOML spec](https://toml.io/en/).
+`$XDG_CONFIG_HOME/tg_maid` or `$HOME/.config/tg_maid`.
+You can also manually specify the config file path by environment variable `TG_MAID_CFG_PATH`.
+The content of the file should followed the [TOML spec](https://toml.io/en/).
 
 The below table describe all the configuration:
 
@@ -129,6 +130,17 @@ You can now use your favourite editor to start contributing to this project:
 $EDITOR .
 ```
 
+To build the bot executable:
+
+```bash
+nix build
+```
+
+To build the docker image:
+
+```bash
+nix build .#docker
+```
 
 ## TODO
 
