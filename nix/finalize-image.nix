@@ -8,7 +8,7 @@ pkgs.writeScript "finalize-docker-image" (''
   # Try verify docker exists and daemon is reachable
   docker info
 
-  nix build --print-out-paths '.#docker' \
+  $(nix build --print-out-paths '.#docker') \
   | docker load --quiet
 '' +
   # If this is the latest build, add new tag for it
