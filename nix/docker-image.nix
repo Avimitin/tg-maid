@@ -31,8 +31,6 @@ pkgs.dockerTools.streamLayeredImage {
 
   contents = with pkgs; [
      cacert
-     # TODO: add redis conf
-     redis
      yt-dlp
      ffmpeg
   ];
