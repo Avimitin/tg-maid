@@ -14,7 +14,7 @@ pkgs.dockerTools.streamLayeredImage {
   ];
 
   fakeRootCommands = ''
-    mkdir -p ${workdir}
+    mkdir -p ${workdir} /tmp
   '';
   enableFakechroot = true;
 
