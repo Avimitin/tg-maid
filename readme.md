@@ -134,12 +134,13 @@ To build the bot executable:
 
 ```bash
 nix build
+./result/bin/tgbot
 ```
 
 To build the docker image:
 
 ```bash
-nix build .#docker
+$(nix build .#docker) | docker load
 ```
 
 ## TODO
