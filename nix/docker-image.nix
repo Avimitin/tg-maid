@@ -1,17 +1,11 @@
-{ pkgs, version, tg-maid }:
+{ pkgs, name, tag, tg-maid }:
 let
   # Specify a dir for user to easily mount volume
   workdir = "/app";
-in
-pkgs.dockerTools.streamLayeredImage {
-  name = "ghcr.io/Avimitin/tg-maid";
-  tag = version;
+in pkgs.dockerTools.streamLayeredImage {
+  inherit name tag;
 
-  contents = with pkgs; [
-     cacert
-     yt-dlp
-     ffmpeg
-  ];
+  contents = with pkgs; [ cacert yt-dlp ffmpeg ];
 
   fakeRootCommands = ''
     mkdir -p ${workdir} /tmp
@@ -19,9 +13,7 @@ pkgs.dockerTools.streamLayeredImage {
   enableFakechroot = true;
 
   config = {
-    env = [
-      "TG_MAID_CFG_PATH=${workdir}/config.toml"
-    ];
+    env = [ "TG_MAID_CFG_PATH=${workdir}/config.toml" ];
     cmd = [ "${tg-maid}/bin/tgbot" ];
     healthcheck = {
       test = [
