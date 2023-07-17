@@ -972,10 +972,13 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
         abort!(bot, msg, "Clean fail: {err}");
     }
 
-    bot.delete_message(msg.chat.id, resp.id).await?;
-
     // handle send result later to make sure video is indeed clear
-    result?;
+    if let Err(err) = result {
+        bot.edit_message_text(msg.chat.id, msg.id, format!("Fail to upload video: {err}"))
+            .await?;
+    } else {
+        bot.delete_message(msg.chat.id, resp.id).await?;
+    }
 
     Ok(())
 }
