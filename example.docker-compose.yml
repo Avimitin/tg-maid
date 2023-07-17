@@ -11,12 +11,10 @@ service:
     container_name: rusty-maid
     networks:
       - rusty-maid-network
-    environment:
-      - XDG_CONFIG_HOME="/etc"
     depends_on:
       - cache
     volumes:
-      - "./appdata:/etc/tg_maid"
+      - "./app:/app"
 
   cache:
     image: 'redis:latest'
