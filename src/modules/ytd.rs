@@ -73,7 +73,7 @@ impl YtdlpVideo {
         if self.webpage_url_domain == "bilibili.com" {
             let upload_profile_link = format!("https://space.bilibili.com/{ }", self.uploader_id);
             let uploader = Html::a(&upload_profile_link, &self.uploader);
-            let video_title = Html::a(&self.webpage_url_domain, &self.fulltitle);
+            let video_title = Html::a(&self.webpage_url, &self.fulltitle);
             format!(
                 "视频：{}\n\
                 上传者：{}\n\
