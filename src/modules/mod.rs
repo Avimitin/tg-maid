@@ -9,6 +9,7 @@ pub mod ksyx;
 pub mod nsfw;
 pub mod osu;
 pub mod piggy;
+pub mod steam;
 pub mod weather;
 pub mod ytd;
 
