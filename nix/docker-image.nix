@@ -1,4 +1,4 @@
-{ pkgs, name, tag, tg-maid }:
+{ pkgs, name, tag, executable }:
 let
   # Specify a dir for user to easily mount volume
   workdir = "/app";
@@ -14,7 +14,7 @@ in pkgs.dockerTools.streamLayeredImage {
 
   config = {
     env = [ "TG_MAID_CFG_PATH=${workdir}/config.toml" ];
-    cmd = [ "${tg-maid}/bin/tgbot" ];
+    cmd = [ executable ];
     healthcheck = {
       test = [
         "CMD-SHELL"

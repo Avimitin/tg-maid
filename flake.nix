@@ -51,9 +51,9 @@
           cargo = rust-toolchain;
           rustc = rust-toolchain;
         };
-
-        # The default package
-        tg-maid = rust.buildRustPackage {
+      in {
+        # nix build
+        packages.default = rust.buildRustPackage {
           src = ./.;
 
           # Build time & Runtime dependencies
@@ -76,8 +76,21 @@
           inherit pname version;
         };
 
+        # nix develop
+        devShells.default =
+          import ./nix/devshell.nix { inherit pkgs fonts rust-toolchain; };
+
+        # nix build .#docker
+        packages.docker = import ./nix/docker-image.nix {
+          name = docker_img_name;
+          tag = version;
+          executable = "${self.packages."${system}".default}/bin/tgbot";
+
+          inherit pkgs;
+        };
+
         # Generate script for GitHub Action to run
-        ci-script = import ./nix/finalize-image.nix {
+        packages.ci-script = import ./nix/finalize-image.nix {
           name = docker_img_name;
           tag = version;
 
@@ -88,26 +101,11 @@
 
           inherit pkgs;
         };
-      in {
-        # nix build
-        packages.default = tg-maid;
-
-        # nix develop
-        devShells.default =
-          import ./nix/devshell.nix { inherit pkgs fonts rust-toolchain; };
-
-        # nix build .#docker
-        packages.docker = import ./nix/docker-image.nix {
-          name = docker_img_name;
-          tag = version;
-
-          inherit pkgs tg-maid;
-        };
 
         # nix run .#ci
         apps.ci = {
           type = "app";
-          program = "${ci-script}";
+          program = "${self.packages."${system}".ci-script}";
         };
       });
 }
