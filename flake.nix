@@ -89,5 +89,12 @@
           type = "app";
           program = "${self.packages."${system}".ci-script}";
         };
+
+        formatter = pkgs.writeScriptBin "format-all" ''
+          #!${pkgs.bash}/bin/bash
+          ${pkgs.findutils}/bin/find . \
+            -name '*.nix' \
+            -exec ${pkgs.nixfmt}/bin/nixfmt {} +
+        '';
       });
 }
