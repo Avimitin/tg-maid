@@ -649,7 +649,9 @@ async fn create_quote(
         return Ok(img);
     }
 
-    let avatar_id = &photos[0]
+    let avatar_id = &photos
+        .last()
+        .unwrap()
         .iter()
         .max_by(|x, y| x.width.cmp(&y.width))
         .unwrap()
