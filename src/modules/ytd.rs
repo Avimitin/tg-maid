@@ -47,8 +47,13 @@ impl YtdlpVideo {
         }
 
         let filepath = String::from_utf8_lossy(&result.stdout).trim().to_string();
+        if filepath.is_empty() {
+            anyhow::bail!("Video too large");
+        }
         let video_path = PathBuf::from(filepath);
-        let ext = video_path.extension().unwrap().to_str().unwrap();
+        let Some(ext) = video_path.extension().map(|a| a.to_str().unwrap()) else {
+            anyhow::bail!("Video too large");
+        };
         let filename = video_path
             .file_name()
             .expect("[ytdlp] must have filename")
