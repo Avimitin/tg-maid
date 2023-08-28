@@ -17,7 +17,7 @@
       let
         # Meta
         pname = "tg-maid";
-        version = "unstable-2023-07-14";
+        version = "unstable-2023-08-23";
 
         # Rust overlays for the Nixpkgs
         overlays = [ (import rust-overlay) ];
@@ -85,9 +85,8 @@
         };
 
         # nix run .#ci
-        apps.ci = {
-          type = "app";
-          program = "${self.packages."${system}".ci-script}";
+        apps.ci = flake-utils.lib.mkApp {
+          drv = self.packages."${system}".ci-script;
         };
 
         formatter = pkgs.nixpkgs-fmt;

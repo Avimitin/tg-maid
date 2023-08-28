@@ -2,8 +2,7 @@
 with pkgs.lib.strings;
 
 # Load tarball into docker images
-pkgs.writeScript "finalize-docker-image" (''
-  #!${pkgs.bash}/bin/bash
+pkgs.writeShellScriptBin "finalize-docker-image" (''
   set -e; set -o pipefail
   # Try verify docker exists and daemon is reachable
   docker info
