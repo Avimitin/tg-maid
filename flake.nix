@@ -84,6 +84,29 @@
           inherit pkgs;
         };
 
+        packages.test-docker = let
+            drv = pkgs.writeShellScriptBin "test-script" ''
+              echo "FooBarBaz" > /tmp/test.txt
+              sleep 3s
+              cat /tmp/test.txt
+            '';
+          in
+        pkgs.dockerTools.streamLayeredImage {
+          name = "test";
+          tag = "latest";
+
+          fakeRootCommands = ''
+            mkdir -p /tmp
+          '';
+          enableFakechroot = true;
+
+          maxLayers = 50;
+
+          config = {
+            cmd = [ "${drv}/bin/test-script" ];
+          };
+        };
+
         # nix run .#ci
         apps.ci = flake-utils.lib.mkApp {
           drv = self.packages."${system}".ci-script;

@@ -20,5 +20,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - run: nix-shell -p nix-info --run "nix-info -m"
       - name: Build & Push
-        run: nix run .#ci
+        run: nix build --print-out-paths .#test-docker | docker load --quiet

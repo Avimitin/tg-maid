@@ -13,7 +13,7 @@ pkgs.dockerTools.streamLayeredImage {
   '';
   enableFakechroot = true;
 
-  maxLayers = 25;
+  maxLayers = 50;
 
   config = {
     env = [ "TG_MAID_CFG_PATH=${workdir}/config.toml" ];
