@@ -1,6 +1,34 @@
-{ pkgs, fonts, rust-toolchain }:
-pkgs.mkShell {
-  nativeBuildInputs = with pkgs; [
+{ mkShell, writeShellScriptBin, rust-analyzer-unwrapped, yt-dlp, ffmpeg, redis, git, openssl, llvmPackages_16, fonts, rust-toolchain }:
+let
+  redisWorkDir = "./.cache/redis";
+  redisServerPort = 16379;
+  redisPidFile = "${redisWorkDir}/redis_${redisServerPort}.pid";
+
+  startUpRedisScript = writeShellScriptBin "startup-redis" ''
+    # Initialize redis-server
+    mkdir -p ${redisWorkDir}
+    echo \
+    "
+    daemonize yes
+    dir ${redisWorkDir}
+    bind 127.0.0.1 -::1
+    port ${redisServerPort}
+    pidfile ${redisPidFile}
+    " | redis-server -
+  '';
+  shutdownRedisScript = writeShellScriptBin "shutdown-redis" ''
+    redis-cli -h 127.0.0.1 -p ${redisServerPort} shutdown
+    [[ -f ${redisPidFile} ]] && kill $(cat ${redisPidFile})
+    [[ -d ${redisWorkDir} ]] && rm -r ${redisWorkDir}
+  '';
+  redisCliWrapper = writeShellScriptBin "rcli" ''
+    [[ -f ${redisPidFile} ]] || \
+      (echo "Run startup-redis to start a redis server" && exit 1)
+    redis-cli -h 127.0.0.1 -p ${redisServerPort}
+  '';
+in
+mkShell {
+  nativeBuildInputs = [
     rust-toolchain
     # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
     rust-analyzer-unwrapped
@@ -11,49 +39,17 @@ pkgs.mkShell {
     redis
     # In case someone want to commit inside the nix shell but got a version mismatch openssl
     git
+    # Use LLD
+    llvmPackages_16.bintools
   ];
 
-  buildInputs = [ pkgs.openssl ];
+  buildInputs = [ openssl ];
 
-  shellHook = ''
-    #
-    # ENV
-    #
+  env = {
     # To make rust-analyzer work correctly (The path prefix issue)
-    export RUST_SRC_PATH="${rust-toolchain}/lib/rustlib/src/rust/library"
-
+    RUST_SRC_PATH = "${rust-toolchain}/lib/rustlib/src/rust/library";
     # Export font path to be include
-    export QUOTE_TEXT_FONT_PATH=${fonts.bold}
-    export QUOTE_USERNAME_FONT_PATH=${fonts.light}
-
-    # Initialize redis-server
-    workdir=$PWD/.cache/redis
-    mkdir -p $workdir
-    port=16379
-    pidfile="$workdir/redis_$port.pid"
-
-    echo \
-    "
-    daemonize yes
-    dir $workdir
-    bind 127.0.0.1 -::1
-    port $port
-    pidfile $pidfile
-    " | redis-server -
-
-    # Kill redis-server on exit
-    trap \
-      "
-        redis-cli -h 127.0.0.1 -p 16379 shutdown
-        [[ -f $pidfile ]] && kill $(cat $pidfile)
-        [[ -d $workdir ]] && rm -r $workdir
-      " \
-    EXIT
-
-    # Add cli wrapper
-    alias rcli="redis-cli -h 127.0.0.1 -p $port"
-
-    # clean up temporary variable
-    unset workdir port pidfile
-  '';
+    QUOTE_TEXT_FONT_PATH = "${fonts.bold}";
+    QUOTE_USERNAME_FONT_PATH = "${fonts.light}";
+  };
 }

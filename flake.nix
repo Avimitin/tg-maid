@@ -33,13 +33,14 @@
           cargo = rust-toolchain;
           rustc = rust-toolchain;
         };
-      in {
+      in
+      {
         # nix build
         packages.default = rust.buildRustPackage {
           src = ./.;
 
           # Build time & Runtime dependencies
-          nativeBuildInputs = [ pkgs.pkg-config ];
+          nativeBuildInputs = [ pkgs.pkg-config pkgs.llvmPackages_16.bintools ];
           # Link time dependencies
           buildInputs = [ pkgs.openssl ];
 
@@ -59,8 +60,7 @@
         };
 
         # nix develop
-        devShells.default =
-          import ./nix/devshell.nix { inherit pkgs fonts rust-toolchain; };
+        devShells.default = pkgs.callPackage ./nix/devshell.nix { inherit fonts rust-toolchain; };
 
         # nix build .#docker
         packages.docker = import ./nix/docker-image.nix {
@@ -90,11 +90,6 @@
           program = "${self.packages."${system}".ci-script}";
         };
 
-        formatter = pkgs.writeScriptBin "format-all" ''
-          #!${pkgs.bash}/bin/bash
-          ${pkgs.findutils}/bin/find . \
-            -name '*.nix' \
-            -exec ${pkgs.nixfmt}/bin/nixfmt {} +
-        '';
+        formatter = pkgs.nixpkgs-fmt;
       });
 }
