@@ -27,7 +27,16 @@ pub struct YtdlpVideo {
 
 impl YtdlpVideo {
     pub async fn dl_from_url(url: &str) -> anyhow::Result<Self> {
-        Url::parse(url).map_err(|og| anyhow::anyhow!("Invalid URL: {url}, parse error: {og}"))?;
+        let domain = Url::parse(url)
+            .map_err(|og| anyhow::anyhow!("Invalid URL: {url}, parse error: {og}"))?
+            .domain()
+            .map(|d| d.to_string())
+            .ok_or_else(|| anyhow::anyhow!("Invalid URL"))?;
+        let whitelist = ["www.bilibili.com"];
+        if !whitelist.contains(&domain.as_str()) {
+            anyhow::bail!("Not support platform")
+        }
+
         let result = process::Command::new("yt-dlp")
             .arg(url)
             .arg("--write-info-json")
