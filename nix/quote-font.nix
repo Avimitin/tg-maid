@@ -7,7 +7,8 @@ let
     sha256 = "sha256-541hsYHqjBYTBEg7ooGfX1+hJLo4QouQnVOIq8UzN7Y=";
     sparseCheckout = [ "Sans/OTC" ];
   };
-in {
+in
+{
   bold = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
   light = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
 }

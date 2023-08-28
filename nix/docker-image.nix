@@ -2,7 +2,8 @@
 let
   # Specify a dir for user to easily mount volume
   workdir = "/app";
-in pkgs.dockerTools.streamLayeredImage {
+in
+pkgs.dockerTools.streamLayeredImage {
   inherit name tag;
 
   contents = with pkgs; [ cacert yt-dlp ffmpeg ];
