@@ -15,102 +15,25 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        # Meta
-        pname = "tg-maid";
-        version = "unstable-2023-08-23";
-
-        # Rust overlays for the Nixpkgs
-        overlays = [ (import rust-overlay) ];
+        myOverlay = import ./overlay.nix;
+        overlays = [ (import rust-overlay) myOverlay ];
         pkgs = import nixpkgs { inherit system overlays; };
-
-        fonts = import ./nix/quote-font.nix { inherit pkgs; };
-
-        # Override the nixpkgs
-        rust-toolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" ];
-        };
-        rust = pkgs.makeRustPlatform {
-          cargo = rust-toolchain;
-          rustc = rust-toolchain;
-        };
+        version = "unstable-2023-08-30";
+        dockerScripts = import ./nix/docker-scripts.nix { inherit version; };
       in
       {
         # nix build
-        packages.default = rust.buildRustPackage {
-          src = ./.;
+        packages.default = pkgs.callPackage ./nix/tg-maid.nix { inherit version; };
 
-          # Build time & Runtime dependencies
-          nativeBuildInputs = [ pkgs.pkg-config pkgs.llvmPackages_16.bintools ];
-          # Link time dependencies
-          buildInputs = [ pkgs.openssl ];
-
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-            allowBuiltinFetchGit = true;
-          };
-
-          # Some test require proper env, which is not available during build
-          doCheck = false;
-
-          # Export font path
-          QUOTE_TEXT_FONT_PATH = fonts.bold;
-          QUOTE_USERNAME_FONT_PATH = fonts.light;
-
-          inherit pname version;
+        # nix build .#docker
+        packages.docker-builder = pkgs.callPackage dockerScripts.builder { tg-maid = self.packages.${system}.default; };
+        # nix run .#ci
+        apps.ci = flake-utils.lib.mkApp {
+          drv = pkgs.callPackage dockerScripts.finalizer { doPush = true; isLatest = true; };
         };
 
         # nix develop
-        devShells.default = pkgs.callPackage ./nix/devshell.nix { inherit fonts rust-toolchain; };
-
-        # nix build .#docker
-        packages.docker = import ./nix/docker-image.nix {
-          name = "ghcr.io/avimitin/${pname}";
-          tag = version;
-          executable = "${self.packages."${system}".default}/bin/tgbot";
-
-          inherit pkgs;
-        };
-
-        # Generate script for GitHub Action to run
-        packages.ci-script = import ./nix/finalize-image.nix {
-          name = "ghcr.io/avimitin/${pname}";
-          tag = version;
-
-          # Do docker push
-          do_push = true;
-          # Also tag image as latest
-          is_latest = true;
-
-          inherit pkgs;
-        };
-
-        packages.test-docker = let
-            drv = pkgs.writeShellScriptBin "test-script" ''
-              echo "FooBarBaz" > /tmp/test.txt
-              sleep 3s
-              cat /tmp/test.txt
-            '';
-          in
-        pkgs.dockerTools.streamLayeredImage {
-          name = "test";
-          tag = "latest";
-
-          fakeRootCommands = ''
-            mkdir -p /tmp
-          '';
-          enableFakechroot = true;
-
-          maxLayers = 50;
-
-          config = {
-            cmd = [ "${drv}/bin/test-script" ];
-          };
-        };
-
-        # nix run .#ci
-        apps.ci = flake-utils.lib.mkApp {
-          drv = self.packages."${system}".ci-script;
-        };
+        devShells.default = pkgs.callPackage ./nix/devshell.nix { };
 
         formatter = pkgs.nixpkgs-fmt;
       });

@@ -1,4 +1,4 @@
-{ mkShell, writeShellScriptBin, rust-analyzer-unwrapped, yt-dlp, ffmpeg, redis, git, openssl, llvmPackages_16, fonts, rust-toolchain }:
+{ mkShell, writeShellScriptBin, rust-analyzer-unwrapped, yt-dlp, ffmpeg, redis, git, openssl, llvmPackages_16, myFont, myRustToolchain }:
 let
   redisWorkDir = "./.cache/redis";
   redisServerPort = 16379;
@@ -29,7 +29,7 @@ let
 in
 mkShell {
   nativeBuildInputs = [
-    rust-toolchain
+    myRustToolchain
     # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
     rust-analyzer-unwrapped
     yt-dlp
@@ -41,15 +41,20 @@ mkShell {
     git
     # Use LLD
     llvmPackages_16.bintools
+
+    # Helper script
+    startUpRedisScript
+    shutdownRedisScript
+    redisCliWrapper
   ];
 
   buildInputs = [ openssl ];
 
   env = {
     # To make rust-analyzer work correctly (The path prefix issue)
-    RUST_SRC_PATH = "${rust-toolchain}/lib/rustlib/src/rust/library";
+    RUST_SRC_PATH = "${myRustToolchain}/lib/rustlib/src/rust/library";
     # Export font path to be include
-    QUOTE_TEXT_FONT_PATH = "${fonts.bold}";
-    QUOTE_USERNAME_FONT_PATH = "${fonts.light}";
+    QUOTE_TEXT_FONT_PATH = "${myFont.bold}";
+    QUOTE_USERNAME_FONT_PATH = "${myFont.light}";
   };
 }

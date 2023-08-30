@@ -1,6 +1,6 @@
-{ pkgs }:
+{ fetchFromGitHub }:
 let
-  noto-fonts-cjk = pkgs.fetchFromGitHub {
+  noto-fonts-cjk = fetchFromGitHub {
     owner = "googlefonts";
     repo = "noto-cjk";
     rev = "1c7ca85cb5195a3332e18c2b5cfe196ffb084e72";

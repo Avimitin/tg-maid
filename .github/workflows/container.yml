@@ -22,4 +22,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: nix-shell -p nix-info --run "nix-info -m"
       - name: Build & Push
-        run: nix build --print-out-paths .#test-docker | docker load --quiet
+        run: nix run .#ci
