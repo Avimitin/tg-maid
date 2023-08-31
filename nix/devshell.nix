@@ -1,7 +1,7 @@
 { mkShell, writeShellScriptBin, rust-analyzer-unwrapped, yt-dlp, ffmpeg, redis, git, openssl, llvmPackages_16, myFont, myRustToolchain }:
 let
   redisWorkDir = "./.cache/redis";
-  redisServerPort = 16379;
+  redisServerPort = "16379";
   redisPidFile = "${redisWorkDir}/redis_${redisServerPort}.pid";
 
   startUpRedisScript = writeShellScriptBin "startup-redis" ''
