@@ -1,3 +1,4 @@
+use anyhow::Context;
 use reqwest::Url;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -74,6 +75,10 @@ impl YtdlpVideo {
         let dl_info = tokio::fs::read(&dl_info_path).await?;
 
         let thumbnail = PathBuf::from(format!("{filename}.jpg"));
+        match thumbnail.try_exists() {
+            Ok(false) | Err(_) => anyhow::bail!("No thumbnail for this video"),
+            _ => (),
+        }
 
         let mut info_file: Self = serde_json::from_slice(&dl_info)?;
         info_file.video_filepath = video_path;
@@ -98,14 +103,20 @@ impl YtdlpVideo {
                 self.description.chars().take(100).collect::<String>()
             )
         } else {
-            format!("Unimplement platform")
+            "Unimplement platform".to_string()
         }
     }
 
     pub async fn clean(self) -> anyhow::Result<()> {
-        tokio::fs::remove_file(self.video_filepath).await?;
-        tokio::fs::remove_file(self.info_filepath).await?;
-        tokio::fs::remove_file(self.thumbnail_filepath).await?;
+        tokio::fs::remove_file(self.video_filepath)
+            .await
+            .with_context(|| "fail to delete video")?;
+        tokio::fs::remove_file(self.info_filepath)
+            .await
+            .with_context(|| "fail to delete information file")?;
+        tokio::fs::remove_file(self.thumbnail_filepath)
+            .await
+            .with_context(|| "fail to delete thumbnail")?;
         Ok(())
     }
 }
