@@ -175,11 +175,9 @@ async fn callback_dispatcher(cb: CallbackQuery, bot: Bot, app_data: AppData) -> 
         return Ok(());
     }
 
-    let cb_data = cb.data.as_deref().unwrap();
-    match cb_data {
-        "sticker.make_quote.from_photo" => {
-            add_photo_from_msg_to_sticker_set(cb, bot, app_data).await?
-        }
+    let payload = cb.data.as_deref().unwrap().split('.').collect::<Vec<_>>();
+    match payload[0] {
+        "make_quote" => add_photo_from_msg_to_sticker_set(cb, bot, app_data).await?,
         _ => return Ok(()),
     }
 
@@ -685,14 +683,22 @@ async fn create_quote(
 async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     send_action!(@Typing; msg, bot);
     let Some(reply_to_msg) = msg.reply_to_message() else {
-        abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+        abort!(
+            bot,
+            msg,
+            "You should reply to somebody's text message to generate the quote image"
+        );
     };
 
     let quote = if let Some(quote) = reply_to_msg.text() {
         quote
     } else {
         let Some(quote) = reply_to_msg.caption() else {
-            abort!(bot, msg, "You should reply to somebody's text message to generate the quote image");
+            abort!(
+                bot,
+                msg,
+                "You should reply to somebody's text message to generate the quote image"
+            );
         };
         quote
     };
@@ -709,29 +715,16 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
 
     send_action!(@UploadPhoto; msg, bot);
 
-    let button = InlineKeyboardButton::callback("加入表情包", "sticker.make_quote.from_photo");
+    let userid = target.id.0;
+    let user_first_name = target.first_name.as_str();
+    let callback_data = format!("make_quote.{userid}.{user_first_name}");
+    let button = InlineKeyboardButton::callback("加入表情包", callback_data);
     let keyboard = InlineKeyboardMarkup::new(vec![vec![button]]);
     bot.send_photo(msg.chat.id, photo)
         .reply_markup(keyboard)
         .await?;
 
     Ok(())
-}
-
-fn unwrap_chat_name(msg: &Message) -> Result<&str, &'static str> {
-    let name = if let Some(name) = msg.chat.username() {
-        name
-    } else if let Some(name) = msg.chat.first_name() {
-        name
-    } else if let Some(name) = msg.chat.last_name() {
-        name
-    } else if let Some(name) = msg.chat.title() {
-        name
-    } else {
-        return Err("Action require chat username or first/last name or title");
-    };
-
-    Ok(name)
 }
 
 async fn get_chat_owner_from_cb(cb: &CallbackQuery, bot: Bot) -> Option<User> {
@@ -851,14 +844,33 @@ async fn add_photo_from_msg_to_sticker_set(
         // STEP4: Set the sticker
         let bot_info = bot.get_me().await?;
         let Some(sticker_owner) = get_chat_owner_from_cb(&cb, bot.clone()).await else {
-            abort!(bot, msg, "Fail to find chat owner, sticker set need at least one owner");
+            abort!(
+                bot,
+                msg,
+                "Fail to find chat owner, sticker set need at least one owner"
+            );
         };
-        let sticker_name = format!("quote_img_{}_by_{}", sticker_owner.id, bot_info.username());
-        let chat_name = unwrap_chat_name(msg);
-        if let Err(err) = chat_name {
-            abort!(bot, msg, "{err}");
+
+        let payload = cb
+            .data
+            .as_ref()
+            .unwrap()
+            .split('.')
+            .skip(1)
+            .collect::<Vec<_>>();
+        let user_id = payload[0].parse::<i64>();
+        if user_id.is_err() {
+            abort!(
+                bot,
+                msg,
+                "Internal error: fail to get correct user id from payload data."
+            );
         }
-        let sticker_title = format!("Quotes From {}", chat_name.unwrap());
+        let user_id = user_id.unwrap();
+        let username = payload.into_iter().skip(1).collect::<String>();
+
+        let sticker_name = format!("quoting_{user_id}_by_{}", bot_info.username());
+        let sticker_title = format!("Quotes From {username}");
 
         add_or_create_sticker_set(
             bot.clone(),
