@@ -20,6 +20,13 @@ use rusty_maid::{
     sendable,
 };
 
+lazy_static::lazy_static!(
+    static ref MATCH_URL: regex::Regex =
+        regex::Regex::new(
+            r"(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)"
+        ).unwrap();
+);
+
 /// Represent the bot status for the current requesting user.
 #[derive(Clone)]
 pub enum DialogueStatus {
@@ -953,25 +960,47 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
     }
 
     let text = msg.text().expect("Unreachable");
-    let payload = text.split(' ').collect::<Vec<_>>();
+    let payload = text.split(' ').skip(1).collect::<String>();
     if payload.len() < 2 {
         abort!(bot, msg, "No URL given");
     }
 
-    let url = payload[1];
+    let Some(capture) = MATCH_URL.captures(&payload) else {
+        abort!(bot, msg, "Can't find URL from your input");
+    };
+    let Some(url) = capture.get(1) else {
+        abort!(
+            bot,
+            msg,
+            "Can't find URL from your input (This might be an internal regexp error)"
+        );
+    };
     let resp = bot
-        .send_message(msg.chat.id, "Downloading video...")
+        .send_message(msg.chat.id, "Try downloading video...")
         .await?;
-    let result = modules::ytd::YtdlpVideo::dl_from_url(url).await;
+    let result = modules::ytd::YtdlpVideo::dl_from_url(url.as_str()).await;
 
     if let Err(err) = result {
-        abort!(bot, msg, "{err}");
+        bot.edit_message_text(
+            msg.chat.id,
+            resp.id,
+            format!("fail to download video: {err}"),
+        )
+        .await?;
+        return Ok(());
     }
 
-    bot.edit_message_text(msg.chat.id, resp.id, "Uploading video...")
-        .await?;
-
     let video = result.unwrap();
+    let resp_text = if video.maybe_playlist {
+        "Uploading video...\n\
+            (This video appears to be in a playlist, but bot will only download p1. \
+             You will need to add another argument, such as '?p=3', to specify which video in the playlist \
+             you want to download.)"
+    } else {
+        "Uploding video..."
+    };
+    bot.edit_message_text(msg.chat.id, resp.id, resp_text)
+        .await?;
     let result = bot
         .send_video(msg.chat.id, InputFile::file(&video.video_filepath))
         .caption(video.as_tg_video_caption())
@@ -983,7 +1012,13 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
 
     let clean_result = video.clean().await;
     if let Err(err) = clean_result {
-        abort!(bot, msg, "Clean fail: {err}");
+        bot.edit_message_text(
+            msg.chat.id,
+            resp.id,
+            format!("Fail to do make clean up: {err}"),
+        )
+        .await?;
+        return Ok(());
     }
 
     // handle send result later to make sure video is indeed clear
