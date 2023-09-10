@@ -9,6 +9,7 @@ use crate::helper::Html;
 
 #[derive(Deserialize, Debug)]
 pub struct YtdlpVideo {
+    pub id: String,
     pub uploader: String,
     pub uploader_id: String,
     pub description: String,
@@ -24,6 +25,8 @@ pub struct YtdlpVideo {
     pub info_filepath: PathBuf,
     #[serde(skip)]
     pub thumbnail_filepath: PathBuf,
+    #[serde(skip)]
+    pub maybe_playlist: bool,
 }
 
 impl YtdlpVideo {
@@ -46,6 +49,7 @@ impl YtdlpVideo {
             .arg("49.9M")
             .arg("--restrict-filenames")
             .arg("--no-progress")
+            .arg("--no-playlist")
             .arg("--print")
             .arg("after_move:filepath")
             .stdout(Stdio::piped())
@@ -81,6 +85,7 @@ impl YtdlpVideo {
         }
 
         let mut info_file: Self = serde_json::from_slice(&dl_info)?;
+        info_file.maybe_playlist = info_file.id.ends_with("_p1");
         info_file.video_filepath = video_path;
         info_file.info_filepath = dl_info_path;
         info_file.thumbnail_filepath = thumbnail;
