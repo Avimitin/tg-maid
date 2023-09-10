@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process;
+use walkdir::WalkDir;
 
 use crate::helper::Html;
 
@@ -64,7 +65,7 @@ impl YtdlpVideo {
         if filepath.is_empty() {
             anyhow::bail!("Video too large");
         }
-        let video_path = PathBuf::from(filepath);
+        let video_path = PathBuf::from(&filepath);
         let Some(ext) = video_path.extension().map(|a| a.to_str().unwrap()) else {
             anyhow::bail!("Video too large");
         };
@@ -78,17 +79,26 @@ impl YtdlpVideo {
         let dl_info_path = PathBuf::from(format!("{filename}.info.json"));
         let dl_info = tokio::fs::read(&dl_info_path).await?;
 
-        let thumbnail = PathBuf::from(format!("{filename}.jpg"));
-        match thumbnail.try_exists() {
-            Ok(false) | Err(_) => anyhow::bail!("No thumbnail for this video"),
-            _ => (),
+        let thumbnail = WalkDir::new(".")
+            .into_iter()
+            .filter_map(|x| x.ok())
+            .filter(|x| x.file_name().to_str().unwrap().contains(filename))
+            .filter(|x| {
+                let e = x.path().extension();
+                e.is_some() && e.unwrap().to_str().is_some()
+            })
+            .find(|x| ["jpg", "png"].contains(&x.path().extension().unwrap().to_str().unwrap()))
+            .map(|x| x.path().to_path_buf());
+
+        if thumbnail.is_none() {
+            anyhow::bail!("No thumbnail for this video")
         }
 
         let mut info_file: Self = serde_json::from_slice(&dl_info)?;
         info_file.maybe_playlist = info_file.id.ends_with("_p1");
         info_file.video_filepath = video_path;
         info_file.info_filepath = dl_info_path;
-        info_file.thumbnail_filepath = thumbnail;
+        info_file.thumbnail_filepath = thumbnail.unwrap();
 
         Ok(info_file)
     }
