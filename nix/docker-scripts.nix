@@ -21,7 +21,7 @@ in
       '';
       enableFakechroot = true;
 
-      maxLayers = 50;
+      maxLayers = 2;
 
       config = {
         env = [ "TG_MAID_CFG_PATH=/app/config.toml" ];
