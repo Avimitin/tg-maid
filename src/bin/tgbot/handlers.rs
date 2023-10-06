@@ -955,7 +955,7 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
         abort!(
             bot,
             msg,
-            "You have requested download in 1mins, please wait."
+            "You have requested a download task in last 1 min, please wait."
         );
     }
 
@@ -1002,7 +1002,7 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
     bot.edit_message_text(msg.chat.id, resp.id, resp_text)
         .await?;
     let result = bot
-        .send_video(msg.chat.id, InputFile::file(&video.video_filepath))
+        .send_video(msg.chat.id, InputFile::file(&video.filename))
         .caption(video.as_tg_video_caption())
         .parse_mode(ParseMode::Html)
         .width(video.width)

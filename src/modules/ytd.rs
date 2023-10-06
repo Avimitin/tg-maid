@@ -19,16 +19,18 @@ pub struct YtdlpVideo {
     pub webpage_url_domain: String,
     pub width: u32,
     pub height: u32,
+    pub filename: String,
+    pub is_live: Option<bool>,
+    pub filesize_approx: Option<u64>,
+    pub thumbnail: String,
 
-    #[serde(skip)]
-    pub video_filepath: PathBuf,
-    #[serde(skip)]
-    pub info_filepath: PathBuf,
     #[serde(skip)]
     pub thumbnail_filepath: PathBuf,
     #[serde(skip)]
     pub maybe_playlist: bool,
 }
+
+const TELEGRAM_UPLOAD_LIMIT: u64 = 50;
 
 impl YtdlpVideo {
     pub async fn dl_from_url(url: &str) -> anyhow::Result<Self> {
@@ -37,22 +39,44 @@ impl YtdlpVideo {
             .domain()
             .map(|d| d.to_string())
             .ok_or_else(|| anyhow::anyhow!("Invalid URL"))?;
-        let whitelist = ["www.bilibili.com"];
+        let whitelist = ["b23.tv", "www.bilibili.com", "www.youtube.com"];
         if !whitelist.contains(&domain.as_str()) {
-            anyhow::bail!("Not support platform")
+            anyhow::bail!("Not a supportted platform")
+        }
+
+        let info = process::Command::new("yt-dlp")
+            .arg(url)
+            .arg("--restrict-filenames")
+            .arg("-j")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+        if !info.status.success() {
+            anyhow::bail!("{}", String::from_utf8_lossy(&info.stderr))
+        }
+
+        let mut info: Self = serde_json::from_slice(&info.stdout)?;
+        if let Some(true) = info.is_live {
+            anyhow::bail!("Downloading livestream is not allowed");
+        }
+        if info.filesize_approx.is_none() {
+            anyhow::bail!("Downloading livestream is not allowed");
+        }
+
+        let filesize = info.filesize_approx.unwrap();
+        if (filesize / 1024 / 1024) > TELEGRAM_UPLOAD_LIMIT {
+            anyhow::bail!(
+                "Video too large, Telegram doesn't allow uploading video with file size larger than 50MB"
+            );
         }
 
         let result = process::Command::new("yt-dlp")
             .arg(url)
-            .arg("--write-info-json")
             .arg("--write-thumbnail")
-            .arg("--max-filesize")
-            .arg("49.9M")
             .arg("--restrict-filenames")
             .arg("--no-progress")
             .arg("--no-playlist")
-            .arg("--print")
-            .arg("after_move:filepath")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
@@ -61,13 +85,9 @@ impl YtdlpVideo {
             anyhow::bail!("{}", String::from_utf8_lossy(&result.stderr));
         }
 
-        let filepath = String::from_utf8_lossy(&result.stdout).trim().to_string();
-        if filepath.is_empty() {
-            anyhow::bail!("Video too large");
-        }
-        let video_path = PathBuf::from(&filepath);
+        let video_path = PathBuf::from(&info.filename);
         let Some(ext) = video_path.extension().map(|a| a.to_str().unwrap()) else {
-            anyhow::bail!("Video too large");
+            anyhow::bail!("No extension found for this video, this should not be happened");
         };
         let filename = video_path
             .file_name()
@@ -76,59 +96,67 @@ impl YtdlpVideo {
             .expect("[ytdlp] must be UTF-8")
             .strip_suffix(&format!(".{ext}"))
             .expect("[ytdlp] must have extension");
-        let dl_info_path = PathBuf::from(format!("{filename}.info.json"));
-        let dl_info = tokio::fs::read(&dl_info_path).await?;
 
         let thumbnail = WalkDir::new(".")
             .into_iter()
-            .filter_map(|x| x.ok())
-            .filter(|x| x.file_name().to_str().unwrap().contains(filename))
-            .filter(|x| {
-                let e = x.path().extension();
-                e.is_some() && e.unwrap().to_str().is_some()
+            .filter_map(|p| p.ok())
+            .filter(|p| p.path().extension().is_some())
+            .filter(|p| {
+                ["jpg", "png", "webp"].contains(&p.path().extension().unwrap().to_str().unwrap())
             })
-            .find(|x| ["jpg", "png"].contains(&x.path().extension().unwrap().to_str().unwrap()))
+            .find(|p| p.file_name().to_str().unwrap().contains(filename))
             .map(|x| x.path().to_path_buf());
 
         if thumbnail.is_none() {
+            info.clean().await?;
             anyhow::bail!("No thumbnail for this video")
         }
 
-        let mut info_file: Self = serde_json::from_slice(&dl_info)?;
-        info_file.maybe_playlist = info_file.id.ends_with("_p1");
-        info_file.video_filepath = video_path;
-        info_file.info_filepath = dl_info_path;
-        info_file.thumbnail_filepath = thumbnail.unwrap();
+        info.maybe_playlist = info.id.ends_with("_p1");
+        info.thumbnail_filepath = thumbnail.unwrap();
 
-        Ok(info_file)
+        Ok(info)
     }
 
     pub fn as_tg_video_caption(&self) -> String {
-        if self.webpage_url_domain == "bilibili.com" {
-            let upload_profile_link = format!("https://space.bilibili.com/{ }", self.uploader_id);
-            let uploader = Html::a(&upload_profile_link, &self.uploader);
-            let video_title = Html::a(&self.webpage_url, &self.fulltitle);
-            format!(
-                "视频：{}\n\
+        match self.webpage_url_domain.as_str() {
+            "bilibili.com" => {
+                let upload_profile_link =
+                    format!("https://space.bilibili.com/{}", self.uploader_id);
+                let uploader = Html::a(&upload_profile_link, &self.uploader);
+                let video_title = Html::a(&self.webpage_url, &self.fulltitle);
+                format!(
+                    "视频：{}\n\
                 上传者：{}\n\
                 简介：{}...
                 ",
-                video_title,
-                uploader,
-                self.description.chars().take(100).collect::<String>()
-            )
-        } else {
-            "Unimplement platform".to_string()
+                    video_title,
+                    uploader,
+                    self.description.chars().take(100).collect::<String>()
+                )
+            }
+            "youtube.com" => {
+                let upload_profile_link = format!("https://www.youtube.com/{}", self.uploader_id);
+                let uploader = Html::a(&upload_profile_link, &self.uploader);
+                let video_title = Html::a(&self.webpage_url, &self.fulltitle);
+                format!(
+                    "视频：{}\n\
+                上传者：{}\n\
+                简介：{}...
+                ",
+                    video_title,
+                    uploader,
+                    self.description.chars().take(100).collect::<String>()
+                )
+            }
+            _ => "Unsupported platform".to_string(),
         }
     }
 
     pub async fn clean(self) -> anyhow::Result<()> {
-        tokio::fs::remove_file(self.video_filepath)
+        tokio::fs::remove_file(self.filename)
             .await
             .with_context(|| "fail to delete video")?;
-        tokio::fs::remove_file(self.info_filepath)
-            .await
-            .with_context(|| "fail to delete information file")?;
         tokio::fs::remove_file(self.thumbnail_filepath)
             .await
             .with_context(|| "fail to delete thumbnail")?;
