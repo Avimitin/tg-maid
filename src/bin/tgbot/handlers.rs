@@ -999,7 +999,8 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
     } else {
         "Uploding video..."
     };
-    bot.edit_message_text(msg.chat.id, resp.id, resp_text)
+    let resp = bot
+        .edit_message_text(msg.chat.id, resp.id, resp_text)
         .await?;
     let result = bot
         .send_video(msg.chat.id, InputFile::file(&video.filename))
@@ -1012,18 +1013,14 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
 
     let clean_result = video.clean().await;
     if let Err(err) = clean_result {
-        bot.edit_message_text(
-            msg.chat.id,
-            resp.id,
-            format!("Fail to do make clean up: {err}"),
-        )
-        .await?;
+        bot.edit_message_text(msg.chat.id, resp.id, format!("Fail to do clean up: {err}"))
+            .await?;
         return Ok(());
     }
 
     // handle send result later to make sure video is indeed clear
     if let Err(err) = result {
-        bot.edit_message_text(msg.chat.id, msg.id, format!("Fail to upload video: {err}"))
+        bot.edit_message_text(msg.chat.id, resp.id, format!("Fail to upload video: {err}"))
             .await?;
     } else {
         bot.delete_message(msg.chat.id, resp.id).await?;

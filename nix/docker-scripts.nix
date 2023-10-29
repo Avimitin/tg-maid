@@ -21,8 +21,6 @@ in
       '';
       enableFakechroot = true;
 
-      maxLayers = 2;
-
       config = {
         env = [ "TG_MAID_CFG_PATH=/app/config.toml" ];
         cmd = [ "${tg-maid}/bin/tgbot" ];
