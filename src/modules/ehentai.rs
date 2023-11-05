@@ -59,7 +59,7 @@ where
 }
 
 pub fn parse_gid_list(s: &str) -> anyhow::Result<Vec<(&str, &str)>> {
-    let rules = regex::Regex::new(r#"e.hentai\.org/g/(\d+)/(\w+)"#).unwrap();
+    let rules = regex::Regex::new(r"e.hentai\.org/g/(\d+)/(\w+)").unwrap();
     let capture: Vec<_> = rules
         .captures_iter(s)
         .filter_map(|cap| {
