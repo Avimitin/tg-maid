@@ -164,6 +164,7 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     let msg_handler = Update::filter_message()
         .branch(dptree::case![DialogueStatus::None].branch(stateless_cmd_handler))
+        .branch(dptree::case![DialogueStatus::None].endpoint(plain_message_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].branch(stateful_cmd_handler))
         .branch(dptree::case![DialogueStatus::CmdCollectRunning].endpoint(collect_message_handler));
 
@@ -173,6 +174,45 @@ pub fn handler_schema() -> UpdateHandler<anyhow::Error> {
 
     dialogue::enter::<Update, dialogue::InMemStorage<DialogueStatus>, DialogueStatus, _>()
         .branch(root)
+}
+
+async fn plain_message_handler(msg: Message, bot: Bot, app_data: AppData) -> anyhow::Result<()> {
+    if msg.text().is_none() {
+        return Ok(());
+    }
+
+    let captures = MATCH_URL.captures_iter(msg.text().unwrap());
+    let urls: Vec<_> = captures
+        .filter_map(|cap| cap.get(1))
+        .map(|m| m.as_str())
+        .collect();
+
+    if urls.is_empty() {
+        return Ok(());
+    }
+
+    let mut data = Vec::new();
+
+    for url in urls {
+        if let Ok(result) = app_data.url_cleaner.clear(url).await {
+            if result.as_str() == url {
+                continue;
+            }
+
+            data.push(result);
+        }
+    }
+
+    bot.send_message(
+        msg.chat.id,
+        format!(
+            "Clean URLs\n{}",
+            data.iter().map(|s| format!("* {s}\n")).collect::<String>()
+        ),
+    )
+    .await?;
+
+    Ok(())
 }
 
 async fn callback_dispatcher(cb: CallbackQuery, bot: Bot, app_data: AppData) -> anyhow::Result<()> {
@@ -975,10 +1015,11 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
             "Can't find URL from your input (This might be an internal regexp error)"
         );
     };
+    let clean_url = data.url_cleaner.clear(url.as_str()).await?;
     let resp = bot
         .send_message(msg.chat.id, "Try downloading video...")
         .await?;
-    let result = modules::ytd::YtdlpVideo::dl_from_url(url.as_str()).await;
+    let result = modules::ytd::YtdlpVideo::dl_from_url(clean_url.as_str()).await;
 
     if let Err(err) = result {
         bot.edit_message_text(

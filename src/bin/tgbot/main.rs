@@ -1,3 +1,5 @@
+use anyhow::Context;
+use clearurl::UrlCleaner;
 use deepl::DeepLApi;
 use rusty_maid::{
     app::{AppData, RuntimeData},
@@ -60,6 +62,13 @@ fn prepare_quote_maker() -> make_quote::QuoteProducer<'static> {
         .build()
 }
 
+fn url_cleaner() -> UrlCleaner {
+    let path = std::env::var("URL_CLEANER_RULE_FILE")
+        .with_context(|| "url clearner rule file env not set")
+        .unwrap();
+    UrlCleaner::from_file(&path).unwrap()
+}
+
 async fn prepare_osu(cfg: &Config) -> rosu_v2::Osu {
     rosu_v2::Osu::new(cfg.osu.client_id, &cfg.osu.client_secret)
         .await
@@ -73,6 +82,7 @@ async fn prepare_app_data(cfg: &Config) -> AppData {
         .deepl(prepare_deepl(cfg))
         .osu(prepare_osu(cfg).await)
         .quote_maker(prepare_quote_maker())
+        .url_cleaner(url_cleaner())
         .build();
 
     data.into()

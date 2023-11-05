@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use clearurl::UrlCleaner;
 use deepl::DeepLApi;
 
 use crate::{cache::Cacher, http::HttpClient};
@@ -38,4 +39,6 @@ pub struct RuntimeData {
     pub osu: rosu_v2::Osu,
 
     pub quote_maker: make_quote::QuoteProducer<'static>,
+
+    pub url_cleaner: UrlCleaner,
 }
