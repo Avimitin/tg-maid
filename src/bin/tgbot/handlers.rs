@@ -203,14 +203,16 @@ async fn plain_message_handler(msg: Message, bot: Bot, app_data: AppData) -> any
         }
     }
 
-    bot.send_message(
-        msg.chat.id,
-        format!(
-            "Clean URLs\n{}",
-            data.iter().map(|s| format!("* {s}\n")).collect::<String>()
-        ),
-    )
-    .await?;
+    if !data.is_empty() {
+        bot.send_message(
+            msg.chat.id,
+            format!(
+                "Clean URLs\n{}",
+                data.iter().map(|s| format!("* {s}\n")).collect::<String>()
+            ),
+        )
+        .await?;
+    }
 
     Ok(())
 }
