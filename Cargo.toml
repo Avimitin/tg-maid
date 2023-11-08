@@ -40,7 +40,7 @@ serde_json = "1.0.82"
 toml = "0.8.6"
 quick-xml = { version = "0.31.0", features = [ "serialize" ] }
 
-clearurl = "0.6.2"
+clearurl = "0.6.3"
 
 [[bin]]
 name = "tgbot"
