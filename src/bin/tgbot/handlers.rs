@@ -1017,11 +1017,18 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
             "Can't find URL from your input (This might be an internal regexp error)"
         );
     };
-    let clean_url = data.url_cleaner.clear(url.as_str()).await?;
     let resp = bot
         .send_message(msg.chat.id, "Try downloading video...")
         .await?;
-    let result = modules::ytd::YtdlpVideo::dl_from_url(clean_url.as_str()).await;
+
+    let final_url = if let Ok(clean_url) = data.url_cleaner.clear(url.as_str()).await {
+        clean_url
+    } else {
+        reqwest::Url::parse(url.as_str())
+            .expect("internal error: fail to parse url, check REGEXP valid or not")
+    };
+
+    let result = modules::ytd::YtdlpVideo::dl_from_url(final_url.as_str()).await;
 
     if let Err(err) = result {
         bot.edit_message_text(
