@@ -1,5 +1,4 @@
 use anyhow::Context;
-use reqwest::Url;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -34,16 +33,6 @@ const TELEGRAM_UPLOAD_LIMIT: u64 = 50;
 
 impl YtdlpVideo {
     pub async fn dl_from_url(url: &str) -> anyhow::Result<Self> {
-        let domain = Url::parse(url)
-            .map_err(|og| anyhow::anyhow!("Invalid URL: {url}, parse error: {og}"))?
-            .domain()
-            .map(|d| d.to_string())
-            .ok_or_else(|| anyhow::anyhow!("Invalid URL"))?;
-        let whitelist = ["b23.tv", "www.bilibili.com", "www.youtube.com"];
-        if !whitelist.contains(&domain.as_str()) {
-            anyhow::bail!("Not a supportted platform")
-        }
-
         let info = process::Command::new("yt-dlp")
             .arg(url)
             .arg("--restrict-filenames")
@@ -86,6 +75,12 @@ impl YtdlpVideo {
         }
 
         let video_path = PathBuf::from(&info.filename);
+        match tokio::fs::try_exists(&video_path).await {
+            Ok(true) => (),
+            _ => {
+                anyhow::bail!("No video file found, this might happen when yt-dlp download fail but exit with no error");
+            }
+        }
         let Some(ext) = video_path.extension().map(|a| a.to_str().unwrap()) else {
             anyhow::bail!("No extension found for this video, this should not be happened");
         };
