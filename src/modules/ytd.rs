@@ -20,7 +20,6 @@ pub struct YtdlpVideo {
     pub height: u32,
     pub filename: String,
     pub is_live: Option<bool>,
-    pub filesize_approx: Option<u64>,
     pub thumbnail: String,
 
     #[serde(skip)]
@@ -29,12 +28,14 @@ pub struct YtdlpVideo {
     pub maybe_playlist: bool,
 }
 
-const TELEGRAM_UPLOAD_LIMIT: u64 = 50;
-
 impl YtdlpVideo {
     pub async fn dl_from_url(url: &str) -> anyhow::Result<Self> {
+        // Select video with mp4 format and size lower than 50M
+        let video_format = "[ext=mp4][filesize<50M] / [ext=mp4][filesize_approx<50M]";
         let info = process::Command::new("yt-dlp")
             .arg(url)
+            .arg("--format")
+            .arg(video_format)
             .arg("--restrict-filenames")
             .arg("-j")
             .stdout(Stdio::piped())
@@ -42,26 +43,25 @@ impl YtdlpVideo {
             .output()
             .await?;
         if !info.status.success() {
-            anyhow::bail!("{}", String::from_utf8_lossy(&info.stderr))
+            let err = String::from_utf8_lossy(&info.stderr);
+            if err.contains("Requested format is not available") {
+                anyhow::bail!(
+                    "The requested video has no mp4 format (required for Telegram preview)\
+                    or is larger than 50MB (Telegram max file limit for bot)"
+                )
+            }
+            anyhow::bail!("{}", err)
         }
 
         let mut info: Self = serde_json::from_slice(&info.stdout)?;
         if let Some(true) = info.is_live {
             anyhow::bail!("Downloading livestream is not allowed");
         }
-        if info.filesize_approx.is_none() {
-            anyhow::bail!("Downloading livestream is not allowed");
-        }
-
-        let filesize = info.filesize_approx.unwrap();
-        if (filesize / 1024 / 1024) > TELEGRAM_UPLOAD_LIMIT {
-            anyhow::bail!(
-                "Video too large, Telegram doesn't allow uploading video with file size larger than 50MB"
-            );
-        }
 
         let result = process::Command::new("yt-dlp")
             .arg(url)
+            .arg("--format")
+            .arg(video_format)
             .arg("--write-thumbnail")
             .arg("--restrict-filenames")
             .arg("--no-progress")
