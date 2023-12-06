@@ -31,11 +31,22 @@ pub struct YtdlpVideo {
 impl YtdlpVideo {
     pub async fn dl_from_url(url: &str) -> anyhow::Result<Self> {
         // Select video with mp4 format and size lower than 50M
-        let video_format = "[ext=mp4][filesize<50M] / [ext=mp4][filesize_approx<50M]";
+        const QUALITY: [&str; 2] = ["b", "w"];
+        const EXT: [&str; 2] = ["[ext=mp4]", ""];
+        const SIZE: [&str; 2] = ["[filesize<50M]", "[filesize_approx<50M]"];
+        let video_format = QUALITY
+            .iter()
+            .flat_map(move |qua| {
+                EXT.iter()
+                    .flat_map(move |ext| SIZE.iter().map(move |size| format!("{qua}{ext}{size}")))
+            })
+            .collect::<Vec<_>>()
+            .join("/");
+
         let info = process::Command::new("yt-dlp")
             .arg(url)
             .arg("--format")
-            .arg(video_format)
+            .arg(&video_format)
             .arg("--restrict-filenames")
             .arg("-j")
             .stdout(Stdio::piped())
@@ -61,7 +72,7 @@ impl YtdlpVideo {
         let result = process::Command::new("yt-dlp")
             .arg(url)
             .arg("--format")
-            .arg(video_format)
+            .arg(&video_format)
             .arg("--write-thumbnail")
             .arg("--restrict-filenames")
             .arg("--no-progress")
