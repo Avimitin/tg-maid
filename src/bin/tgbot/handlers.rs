@@ -2,6 +2,7 @@ use anyhow::Result;
 use image::ImageFormat;
 use rand::Rng;
 use redis::Commands;
+use std::fmt::Write;
 use teloxide::{
     dispatching::{dialogue, UpdateHandler},
     net::Download,
@@ -208,7 +209,10 @@ async fn plain_message_handler(msg: Message, bot: Bot, app_data: AppData) -> any
             msg.chat.id,
             format!(
                 "Clean URLs\n{}",
-                data.iter().map(|s| format!("* {s}\n")).collect::<String>()
+                data.iter().fold(String::new(), |mut acc, item| {
+                    write!(&mut acc, "* {item}").unwrap();
+                    acc
+                })
             ),
         )
         .await?;

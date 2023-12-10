@@ -6,7 +6,7 @@ use teloxide::{payloads::SendPhotoSetters, prelude::Requester, types as tg_type}
 
 pub struct BiliApi;
 impl BiliApi {
-    const BATCH_ROOM_INFO: &str =
+    const BATCH_ROOM_INFO: &'static str =
         "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids";
 }
 
