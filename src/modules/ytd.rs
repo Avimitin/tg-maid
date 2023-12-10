@@ -31,7 +31,7 @@ pub struct YtdlpVideo {
 impl YtdlpVideo {
     pub async fn dl_from_url(url: &str) -> anyhow::Result<Self> {
         // Select video with mp4 format and size lower than 50M
-        const QUALITY: [&str; 2] = ["b", "w"];
+        const QUALITY: [&str; 4] = ["b", "w", "b*", "w*"];
         const EXT: [&str; 2] = ["[ext=mp4]", ""];
         const SIZE: [&str; 2] = ["[filesize<50M]", "[filesize_approx<50M]"];
         let video_format = QUALITY
