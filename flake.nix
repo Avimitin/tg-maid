@@ -36,5 +36,6 @@
         devShells.default = pkgs.callPackage ./nix/devshell.nix { };
 
         formatter = pkgs.nixpkgs-fmt;
+        legacyPackages = pkgs;
       });
 }
