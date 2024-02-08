@@ -1,11 +1,14 @@
 final: prev:
-rec {
+
+{
   myRustToolchain = final.rust-bin.stable.latest.default.override {
     extensions = [ "rust-src" ];
   };
-  myRustPlatform = final.makeRustPlatform {
-    cargo = myRustToolchain;
-    rustc = myRustToolchain;
-  };
   myFont = final.callPackages ./nix/quote-font.nix { };
+
+  tg-maid = final.lib.makeScope final.newScope (self: {
+    version = "unstable-2024-02-08";
+    docker-image = self.callPackage ./nix/docker-image.nix { };
+    bot = self.callPackage ./nix/tg-maid.nix { };
+  });
 }
