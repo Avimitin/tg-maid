@@ -133,14 +133,14 @@ $EDITOR .
 To build the bot executable:
 
 ```bash
-nix build
+nix build .#tg-maid.bot
 ./result/bin/tgbot
 ```
 
 To build the docker image:
 
 ```bash
-$(nix build .#docker) | docker load
+nix run .#tg-maid.docker-image | docker load
 ```
 
 ## TODO
