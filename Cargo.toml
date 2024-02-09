@@ -29,18 +29,18 @@ walkdir = "2.4.0"
 
 # osu
 rosu-v2 = "0.8.0"
-rosu-pp = "0.9.4"
+rosu-pp = "0.10.0"
 
 # Cache Management
 r2d2 = "0.8.10"
-redis = { version = "0.23.0", features = ["r2d2"] }
+redis = { version = "0.24.0", features = ["r2d2"] }
 
 serde = { version = "1.0.138", features = ["derive"]}
 serde_json = "1.0.82"
 toml = "0.8.6"
 quick-xml = { version = "0.31.0", features = [ "serialize" ] }
 
-clearurl = "0.6.4"
+clearurl = "0.7.0"
 
 [[bin]]
 name = "tgbot"

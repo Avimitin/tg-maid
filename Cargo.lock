@@ -199,9 +199,9 @@ dependencies = [
 
 [[package]]
 name = "clearurl"
-version = "0.6.4"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24e2112d9d725bcf5e6f062ade4d5d06fc15b22248508f33711013eb1a9341d1"
+checksum = "d1a0d2fb7c282b648c9ae92101c8e42110d2bd83943f424c0c4d10544f640b66"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -1762,9 +1762,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.23.3"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f49cdc0bb3f412bf8e7d1bd90fe1d9eb10bc5c399ba90973c14662a27b3f8ba"
+checksum = "c580d9cbbe1d1b479e8d67cf9daf6a62c957e6846048408b80b43ac3f6af84cd"
 dependencies = [
  "combine",
  "itoa",
@@ -1886,9 +1886,9 @@ dependencies = [
 
 [[package]]
 name = "rosu-pp"
-version = "0.9.5"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be9e281b71d3797817a1e6615dd8fb081dd61359b4c41d08792cc7c3c1c13b4e"
+checksum = "40f365961f000e9506345a6c57071c23ff983587f24187c0d624bf56a66c1e91"
 
 [[package]]
 name = "rosu-v2"
