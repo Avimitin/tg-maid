@@ -155,7 +155,7 @@ fn cache_event_offset(data: &AppData, user: &UserId, event: &RecentEvent) -> any
 
 #[tokio::test]
 async fn test_get_user_activity() {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
     let client_id: u64 = crate::helper::parse_from_env("OSU_CLIENT_ID");
     let client_secret = crate::helper::env_get_var("OSU_CLIENT_SECRET");

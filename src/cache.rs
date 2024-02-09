@@ -98,7 +98,7 @@ impl Cacher {
 
 #[test]
 fn test_event_registry() {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     let redis_addr = std::env::var("REDIS_ADDR").unwrap();
     let client = redis::Client::open(redis_addr).unwrap();
     let cacher = Cacher::new(client);
