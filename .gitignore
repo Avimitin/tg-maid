@@ -4,3 +4,5 @@
 .neovim.lua
 
 ./result
+
+.cache
