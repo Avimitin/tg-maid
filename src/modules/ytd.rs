@@ -39,8 +39,13 @@ impl YtdlpVideo {
         let video_format = QUALITY
             .iter()
             .flat_map(move |qua| {
-                EXT.iter()
-                    .flat_map(move |ext| SIZE.iter().map(move |size| format!("{qua}{ext}{size}")))
+                EXT.iter().flat_map(move |ext| {
+                    // Use the yt-dlp format to select video will returns video only & audio only
+                    // format for BiliBili video.
+                    //
+                    // +wa means merge this video with the worst audio
+                    SIZE.iter().map(move |size| format!("{qua}{ext}{size}+wa"))
+                })
             })
             .collect::<Vec<_>>()
             .join("/");
