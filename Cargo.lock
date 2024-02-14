@@ -199,9 +199,9 @@ dependencies = [
 
 [[package]]
 name = "clearurl"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1a0d2fb7c282b648c9ae92101c8e42110d2bd83943f424c0c4d10544f640b66"
+checksum = "1493b255ef9688c920dbd06ff4a384effb53f74d088921f382f6af21a02992eb"
 dependencies = [
  "anyhow",
  "lazy_static",
