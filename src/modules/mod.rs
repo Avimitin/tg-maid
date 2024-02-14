@@ -10,6 +10,7 @@ pub mod nsfw;
 pub mod osu;
 pub mod piggy;
 pub mod steam;
+pub mod video_dl;
 pub mod weather;
 pub mod ytd;
 

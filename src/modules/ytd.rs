@@ -7,6 +7,8 @@ use walkdir::WalkDir;
 
 use crate::helper::Html;
 
+use super::video_dl::VideoDownloader;
+
 #[derive(Deserialize, Debug)]
 pub struct YtdlpVideo {
     pub id: String,
@@ -167,6 +169,16 @@ impl YtdlpVideo {
             .await
             .with_context(|| "fail to delete thumbnail")?;
         Ok(())
+    }
+}
+
+impl VideoDownloader for YtdlpVideo {
+    async fn download_from_url(u: &str) -> anyhow::Result<Self> {
+        Self::dl_from_url(u).await
+    }
+
+    fn provide_caption(&self) -> String {
+        self.as_tg_video_caption()
     }
 }
 
