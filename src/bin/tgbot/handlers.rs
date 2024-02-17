@@ -1108,7 +1108,7 @@ async fn jd_handler(msg: Message, bot: Bot) -> Result<()> {
         Ok(item) => {
             let info = item.price();
             let text = format!(
-                "<b>{}</b>\n\n\n<b>标价</b>: {}\n<b>现价</b>: {}\n<b>史低</b>: {}\n\n{}",
+                "<b>{}</b>\n\n<b>标价</b>: {}\n<b>现价</b>: {}\n<b>史低</b>: {}\n\n{}",
                 item.name(),
                 info.listed,
                 info.current,
@@ -1122,7 +1122,6 @@ async fn jd_handler(msg: Message, bot: Bot) -> Result<()> {
                 )
                 .caption(text)
                 .parse_mode(ParseMode::Html)
-                .has_spoiler(true)
                 .await?;
             } else {
                 bot.send_message(msg.chat.id, text)
