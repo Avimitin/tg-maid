@@ -17,7 +17,7 @@ use teloxide::{
 
 use rusty_maid::{
     app::AppData,
-    modules::{self, Sendable},
+    modules::{self, price::PriceInfo, Sendable},
     sendable,
 };
 
@@ -111,6 +111,8 @@ generate_commands! {
         CookPiggy,
         #[desc = "Get some useful id"]
         Id,
+        #[desc = "Get JD price info"]
+        Jd,
         #[desc = "Translate text by DeepL"]
         Tr,
         #[desc = "Get event from someone"]
@@ -1078,6 +1080,59 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
             .await?;
     } else {
         bot.delete_message(msg.chat.id, resp.id).await?;
+    }
+
+    Ok(())
+}
+
+async fn jd_handler(msg: Message, bot: Bot) -> Result<()> {
+    send_action!(@UploadPhoto; msg, bot);
+
+    let args = get_args(&msg);
+    if let Err(err) = args {
+        abort!(bot, msg, "{}", err);
+    }
+
+    let args = args.unwrap();
+    let rules = regex::Regex::new(r"https://item\.jd\.com/(\d+)\.html").unwrap();
+    let capture: Vec<_> = rules
+        .captures_iter(&args)
+        .filter_map(|cap| Some(cap.get(1)?.as_str()))
+        .collect();
+    if capture.is_empty() {
+        abort!(bot, msg, "No item.jd.com url found");
+    }
+
+    let result = crate::modules::price::JDPriceAnalyzer::get(capture[0]).await;
+    match result {
+        Ok(item) => {
+            let info = item.price();
+            let text = format!(
+                "<b>{}</b>\n\n\n<b>标价</b>: {}\n<b>现价</b>: {}\n<b>史低</b>: {}\n\n{}",
+                item.name(),
+                info.listed,
+                info.current,
+                info.lowest,
+                item.sales_info(),
+            );
+            if let Some(photo) = item.thumbnail() {
+                bot.send_photo(
+                    msg.chat.id,
+                    InputFile::url(reqwest::Url::parse(&photo).unwrap()),
+                )
+                .caption(text)
+                .parse_mode(ParseMode::Html)
+                .has_spoiler(true)
+                .await?;
+            } else {
+                bot.send_message(msg.chat.id, text)
+                    .parse_mode(ParseMode::Html)
+                    .await?;
+            }
+        }
+        Err(err) => {
+            abort!(bot, msg, "fail to get JD data: {}", err);
+        }
     }
 
     Ok(())

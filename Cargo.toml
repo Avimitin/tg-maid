@@ -10,7 +10,7 @@ teloxide = { version = "0.12.2", features = ["macros", "auto-send"] }
 tokio = { version = "1.20.0", features = ["full"] }
 dotenvy = "0.15.7"
 anyhow = "1.0.58"
-reqwest = { version = "0.11.11", optional = true }
+reqwest = { version = "0.11.11", features = ["cookies", "json"], optional = true }
 chrono = "0.4.23"
 async-trait = "0.1.56"
 rand = "0.8.5"
