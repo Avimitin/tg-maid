@@ -758,7 +758,15 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
         quote
     };
 
-    let target = if let Some(target) = reply_to_msg.forward_from_user() {
+    use chrono::prelude::*;
+    let today = Local::now();
+    let today_is_april_fool = today.month() == 4 && today.day() == 1;
+    let target = if today_is_april_fool {
+        let Some(target) = msg.from() else {
+            abort!(bot, msg, "My joke broken...");
+        };
+        target
+    } else if let Some(target) = reply_to_msg.forward_from_user() {
         target
     } else if let Some(target) = reply_to_msg.from() {
         target
@@ -769,6 +777,13 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     let photo = create_quote(&bot, target, quote, &data).await?;
 
     send_action!(@UploadPhoto; msg, bot);
+
+    if today_is_april_fool {
+        bot.send_photo(msg.chat.id, photo)
+            .caption("Happy April Fools' Day!")
+            .await?;
+        return Ok(());
+    }
 
     let userid = target.id.0;
     let user_first_name = target.first_name.as_str();
