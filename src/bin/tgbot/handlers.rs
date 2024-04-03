@@ -2,7 +2,7 @@ use anyhow::Result;
 use image::ImageFormat;
 use rand::Rng;
 use redis::Commands;
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
 use teloxide::{
     dispatching::{dialogue, UpdateHandler},
     net::Download,
@@ -850,14 +850,38 @@ fn legalize_sticker_img(path: &str) -> anyhow::Result<()> {
 
 async fn add_or_create_sticker_set(
     bot: Bot,
+    data: AppData,
     sticker: InputSticker,
     sticker_owner: UserId,
     sticker_name: &str,
     sticker_title: &str,
 ) -> anyhow::Result<()> {
-    let sticker_set = bot.get_sticker_set(sticker_name).await;
-    if let Ok(sticker_set) = sticker_set {
-        bot.add_sticker_to_set(sticker_owner, sticker_set.name, sticker, "💭")
+    // let sticker_set = bot.get_sticker_set(sticker_name).await;
+    // if let Ok(sticker_set) = sticker_set {
+    //     bot.add_sticker_to_set(sticker_owner, sticker_set.name, sticker, "💭")
+    //         .await?;
+    // } else {
+    //     bot.create_new_sticker_set(sticker_owner, sticker_name, sticker_title, sticker, "💭")
+    //         .await?;
+    // }
+    // FIXME: bump when teloxide fix this response
+    #[derive(serde::Deserialize)]
+    struct TgResponse {
+        ok: bool,
+    }
+    let resp = data
+        .requester
+        .post(format!(
+            "https://api.telegram.org/bot{}/getStickerSet",
+            bot.token()
+        ))
+        .form(&HashMap::from([("name", sticker_name)]))
+        .send()
+        .await?
+        .json::<TgResponse>()
+        .await?;
+    if resp.ok {
+        bot.add_sticker_to_set(sticker_owner, sticker_name, sticker, "💭")
             .await?;
     } else {
         bot.create_new_sticker_set(sticker_owner, sticker_name, sticker_title, sticker, "💭")
@@ -944,6 +968,7 @@ async fn add_photo_from_msg_to_sticker_set(
 
         add_or_create_sticker_set(
             bot.clone(),
+            data,
             sticker,
             sticker_owner.id,
             &sticker_name,
