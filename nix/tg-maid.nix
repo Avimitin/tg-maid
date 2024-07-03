@@ -1,7 +1,7 @@
 { makeRustPlatform
 , myRustToolchain
 , pkg-config
-, llvmPackages_16
+, mold
 , openssl
 , myFont
 , version
@@ -27,7 +27,7 @@ let
       src = ../.;
 
       # Build time & Runtime dependencies
-      nativeBuildInputs = [ pkg-config llvmPackages_16.bintools ];
+      nativeBuildInputs = [ pkg-config mold ];
       # Link time dependencies
       buildInputs = [ openssl ];
 
