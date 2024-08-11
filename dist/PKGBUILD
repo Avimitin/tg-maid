@@ -1,0 +1,35 @@
+pkgname=tg-maid
+pkgver=1.0
+pkgrel=1
+pkgdesc="My TG MAID"
+url="https://github.com/Avimitin/tg-maid"
+arch=('x86_64')
+license=('MIT')
+depends=('openssl' 'yt-dlp' 'ffmpeg' 'redis')
+makedepends=('cargo' 'mold' 'noto-fonts-cjk' 'git')
+_rev="f9833a73526eec568fb8118604f60ace7d93117c"
+source=("${pkgname}-${pkgver}.zip::$url/archive/$_rev.zip")
+source=("git+${url}.git#commit=${_rev}")
+sha256sums=('SKIP')
+options=(!lto)
+
+prepare() {
+	ls -al
+	cd "${pkgname}"
+	export RUSTUP_TOOLCHAIN=stable
+	cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+	cd "${pkgname}"
+	export RUSTUP_TOOLCHAIN=stable
+	export CARGO_TARGET_DIR=target
+	export QUOTE_TEXT_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc
+	export QUOTE_USERNAME_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc
+	cargo build --frozen --release --all-features
+}
+
+package() {
+	cd "${pkgname}"
+	install -Dm 755 target/release/tgbot "${pkgdir}/usr/lib/tg-maid/tgbot"
+}
