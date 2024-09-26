@@ -1,20 +1,22 @@
 pkgname=tg-maid
-pkgver=1.0
+pkgver=r421.13bc0b5
 pkgrel=1
 pkgdesc="My TG MAID"
 url="https://github.com/Avimitin/tg-maid"
 arch=('x86_64')
 license=('MIT')
 depends=('openssl' 'yt-dlp' 'ffmpeg' 'redis')
-makedepends=('cargo' 'mold' 'noto-fonts-cjk' 'git')
-_rev="f9833a73526eec568fb8118604f60ace7d93117c"
-source=("${pkgname}-${pkgver}.zip::$url/archive/$_rev.zip")
-source=("git+${url}.git#commit=${_rev}")
+makedepends=('git' 'cargo' 'mold' 'noto-fonts-cjk' 'git')
+source=("${pkgname}::git+${url}.git")
 sha256sums=('SKIP')
 options=(!lto)
 
+pkgver() {
+	cd "${srcdir}/${pkgname}"
+	printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
 prepare() {
-	ls -al
 	cd "${pkgname}"
 	export RUSTUP_TOOLCHAIN=stable
 	cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
