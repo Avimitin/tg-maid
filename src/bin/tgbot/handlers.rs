@@ -265,7 +265,7 @@ async fn exchange_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     let text = msg.text().unwrap();
     let parts = text
         .split(' ')
-        .filter(|s| !s.contains(' '))
+        .filter(|s| !s.is_empty() && !s.contains(' '))
         .map(|s| s.trim())
         .collect::<Vec<&str>>();
     if parts.len() < 4 {
