@@ -34,13 +34,6 @@ The below table describe all the configuration:
 > Notice: if you are using docker-compose, set the `redis_addr` to `redis://${service}:${port}` where `${service}`
 > is your redis service name in docker-compose.yml. In my example.docker-compose.yml it is `cache`.
 
-- osu!: `[osu]`
-
-| Key           | Value Type | Docs                                |
-|---------------|------------|-------------------------------------|
-| client_id     | int_u32    | Client ID for osu! API v2 OAuth     |
-| client_secret | String     | Client secret for osu! API v2 OAuth |
-
 - DeepL Translate: `[deepl]`
 
 | Key     | Value Type | Docs                           |
@@ -54,12 +47,6 @@ The below table describe all the configuration:
 | String (Telegram Chat ID) | `List[Number]` (List of Streamer **UID** Not Room ID!!) | Per chat configuration for notifying bilibili live stream status |
 
 
-- Osu User Activity Event: `[osu_user_activity_event]`
-
-| Key                       | Value Type                                    | Docs                                                    |
-|---------------------------|-----------------------------------------------|---------------------------------------------------------|
-| String (Telegram Chat ID) | `List[String]` (List of osu! player username) | Per chat configuration for notifying osu! user activity |
-
 Below is an example configuration:
 
 ```toml
@@ -71,17 +58,9 @@ health_check_port = 11451
 [deepl]
 api_key = "abcde"
 
-[osu]
-client_id = 12345
-client_secret = "abcde"
-
 [bili_live_room_event]
 "-10012345" = [ 1000, 2000, 3000 ]
 "-10054321" = [ 1000, 2000, 3000 ]
-
-[osu_user_activity_event]
-"-10012345" = [ "Cookiezi", "Rafis" ]
-"-10054321" = [ "WhiteCat", "Mrekk" ]
 ```
 
 ## How to build
@@ -146,7 +125,6 @@ nix run .#tg-maid.docker-image | docker load
 ## TODO
 
 - [x] Read config from file
-- [ ] Render osu! user profile and score in SVG, then transform into PNG
 - [x] Implement the make quote functionality
 - [ ] Get random restaurant suggestion from DianPing
 - [x] New command `/roll [range]`

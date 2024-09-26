@@ -35,9 +35,6 @@ pub struct RuntimeData {
 
     pub deepl: DeepLApi,
 
-    #[cfg(feature = "osu")]
-    pub osu: rosu_v2::Osu,
-
     pub quote_maker: make_quote::QuoteProducer<'static>,
 
     pub url_cleaner: UrlCleaner,

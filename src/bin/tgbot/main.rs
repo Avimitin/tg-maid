@@ -31,7 +31,6 @@ async fn run() -> anyhow::Result<()> {
 
     modules::health::spawn_healthcheck_listner(config.health_check_port);
     modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone(), &config);
-    modules::osu::spawn_osu_user_event_watcher(bot.clone(), app_data.clone(), &config);
 
     Dispatcher::builder(bot, handler)
         .dependencies(dptree::deps![app_data, dialogue_state])
@@ -69,18 +68,11 @@ fn url_cleaner() -> UrlCleaner {
     UrlCleaner::from_file(&path).unwrap()
 }
 
-async fn prepare_osu(cfg: &Config) -> rosu_v2::Osu {
-    rosu_v2::Osu::new(cfg.osu.client_id, &cfg.osu.client_secret)
-        .await
-        .unwrap_or_else(|err| panic!("fail to create osu client: {err}"))
-}
-
 async fn prepare_app_data(cfg: &Config) -> AppData {
     let data = RuntimeData::builder()
         .cacher(prepare_cache(cfg))
         .requester(HttpClient::new())
         .deepl(prepare_deepl(cfg))
-        .osu(prepare_osu(cfg).await)
         .quote_maker(prepare_quote_maker())
         .url_cleaner(url_cleaner())
         .build();

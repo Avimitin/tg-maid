@@ -14,10 +14,8 @@ pub struct Config {
     pub health_check_port: u16,
 
     pub deepl: DeepLConfig,
-    pub osu: OsuConfig,
 
     pub bili_live_room_event: HashMap<String, Vec<u64>>,
-    pub osu_user_activity_event: HashMap<String, Vec<String>>,
 }
 
 impl Config {
@@ -60,12 +58,6 @@ pub struct DeepLConfig {
     pub api_key: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct OsuConfig {
-    pub client_id: u64,
-    pub client_secret: String,
-}
-
 fn redis_addr_default() -> String {
     "redis://localhost:6379".to_string()
 }
@@ -90,17 +82,9 @@ fn validate_file_correctness() {
         [deepl]
         api_key = "abcde"
 
-        [osu]
-        client_id = 12345
-        client_secret = "abcde"
-
         [bili_live_room_event]
         "-10012345" = [ 1000, 2000, 3000 ]
         "-10054321" = [ 1000, 2000, 3000 ]
-
-        [osu_user_activity_event]
-        "-10012345" = [ "Cookiezi", "Rafis" ]
-        "-10054321" = [ "WhiteCat", "Mrekk" ]
     "#;
     let path = env::temp_dir().join("tg-maid-test-dir").join("tg_maid");
     fs::create_dir_all(env::temp_dir().join("tg-maid-test-dir").join("tg_maid")).unwrap();
