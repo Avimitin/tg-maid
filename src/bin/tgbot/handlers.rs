@@ -265,7 +265,11 @@ async fn exchange_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
     send_action!(@Typing; msg, bot);
 
     let text = msg.text().unwrap();
-    let parts = text.split(' ').collect::<Vec<&str>>();
+    let parts = text
+        .split(' ')
+        .filter(|s| s.contains(' '))
+        .map(|s| s.trim())
+        .collect::<Vec<&str>>();
     if parts.len() < 4 {
         abort!(bot, msg, "No enough argument. Usage: /exchange 123 JPY CNY");
     }
