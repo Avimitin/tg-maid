@@ -85,7 +85,7 @@ pub fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> anyhow::R
     let mut conn = data.cacher.get_conn();
     let prev_status: Option<u8> = conn.get(&key)?;
 
-    conn.set(&key, info.live_status)?;
+    let () = conn.set(&key, info.live_status)?;
 
     // 255 indicate that the status is not exist before
     Ok(prev_status.unwrap_or(255))

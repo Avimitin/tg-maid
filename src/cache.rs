@@ -81,15 +81,15 @@ impl Cacher {
 
         for event in events {
             let key = format!("SUBSCRIBE_REGISTRY:{}:{}", event_name, event);
-            conn.sadd(key.as_str(), registrant)?;
-            conn.sadd(event_pool_key.as_str(), event)?;
+            let () = conn.sadd(key.as_str(), registrant)?;
+            let () = conn.sadd(event_pool_key.as_str(), event)?;
 
             popingin.insert(key);
         }
 
         let garbage: Vec<String> = (&existing - &popingin).iter().cloned().collect();
         for event in garbage {
-            conn.srem(event, registrant)?;
+            let () = conn.srem(event, registrant)?;
         }
 
         Ok(())

@@ -2,7 +2,7 @@ use anyhow::Result;
 use image::ImageFormat;
 use rand::Rng;
 use redis::Commands;
-use std::{collections::HashMap, fmt::Write};
+use std::fmt::Write;
 use teloxide::{
     dispatching::{dialogue, UpdateHandler},
     net::Download,
@@ -584,7 +584,7 @@ async fn hit_ksyx_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
         msg.chat.id,
         format!(
             "{} {}了 ksyx，ksyx 已经被动手动脚了 {} 次",
-            msg.from().unwrap().first_name,
+            msg.from.unwrap().first_name,
             action[choice],
             old.unwrap(),
         ),
@@ -596,9 +596,9 @@ async fn hit_ksyx_handler(msg: Message, bot: Bot, data: AppData) -> Result<()> {
 
 async fn id_handler(msg: Message, bot: Bot) -> Result<()> {
     let user_id = if let Some(reply) = msg.reply_to_message() {
-        reply.from().map_or(0, |user| user.id.0)
+        reply.from.as_ref().map_or(0, |user| user.id.0)
     } else {
-        msg.from().map_or(0, |user| user.id.0)
+        msg.from.map_or(0, |user| user.id.0)
     };
     let chat_id = msg.chat.id;
 
@@ -695,7 +695,8 @@ async fn create_quote(
         avatar.into_inner()
     };
 
-    data.cacher
+    let () = data
+        .cacher
         .get_conn()
         .set_ex(avatar_cacher_key, avatar.as_slice(), 60 * 60 * 24)?;
 
@@ -735,13 +736,13 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
     let today = Local::now();
     let today_is_april_fool = today.month() == 4 && today.day() == 1;
     let target = if today_is_april_fool {
-        let Some(target) = msg.from() else {
+        let Some(target) = msg.from.as_ref() else {
             abort!(bot, msg, "My joke broken...");
         };
         target
     } else if let Some(target) = reply_to_msg.forward_from_user() {
         target
-    } else if let Some(target) = reply_to_msg.from() {
+    } else if let Some(target) = reply_to_msg.from.as_ref() {
         target
     } else {
         abort!(bot, msg, "You should reply to normal user");
@@ -772,10 +773,10 @@ async fn make_quote_handler(msg: Message, bot: Bot, data: AppData) -> Result<()>
 
 async fn get_chat_owner_from_cb(cb: &CallbackQuery, bot: Bot) -> Option<User> {
     let msg = cb.message.as_ref()?;
-    match msg.chat.kind {
+    match msg.chat().kind {
         ChatKind::Public(_) => {
             let member = bot
-                .get_chat_administrators(msg.chat.id)
+                .get_chat_administrators(msg.chat().id)
                 .await
                 .ok()?
                 .into_iter()
@@ -823,42 +824,24 @@ fn legalize_sticker_img(path: &str) -> anyhow::Result<()> {
 
 async fn add_or_create_sticker_set(
     bot: Bot,
-    data: AppData,
     sticker: InputSticker,
     sticker_owner: UserId,
     sticker_name: &str,
     sticker_title: &str,
 ) -> anyhow::Result<()> {
-    // let sticker_set = bot.get_sticker_set(sticker_name).await;
-    // if let Ok(sticker_set) = sticker_set {
-    //     bot.add_sticker_to_set(sticker_owner, sticker_set.name, sticker, "💭")
-    //         .await?;
-    // } else {
-    //     bot.create_new_sticker_set(sticker_owner, sticker_name, sticker_title, sticker, "💭")
-    //         .await?;
-    // }
-    // FIXME: bump when teloxide fix this response
-    #[derive(serde::Deserialize)]
-    struct TgResponse {
-        ok: bool,
-    }
-    let resp = data
-        .requester
-        .post(format!(
-            "https://api.telegram.org/bot{}/getStickerSet",
-            bot.token()
-        ))
-        .form(&HashMap::from([("name", sticker_name)]))
-        .send()
-        .await?
-        .json::<TgResponse>()
-        .await?;
-    if resp.ok {
-        bot.add_sticker_to_set(sticker_owner, sticker_name, sticker, "💭")
+    let sticker_set = bot.get_sticker_set(sticker_name).await;
+    if let Ok(sticker_set) = sticker_set {
+        bot.add_sticker_to_set(sticker_owner, sticker_set.name, sticker)
             .await?;
     } else {
-        bot.create_new_sticker_set(sticker_owner, sticker_name, sticker_title, sticker, "💭")
-            .await?;
+        bot.create_new_sticker_set(
+            sticker_owner,
+            sticker_name,
+            sticker_title,
+            [sticker],
+            teloxide::types::StickerFormat::Static,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -869,7 +852,7 @@ async fn add_photo_from_msg_to_sticker_set(
     data: AppData,
 ) -> anyhow::Result<()> {
     // Bound check is done by callback_dispatcher
-    let msg = cb.message.as_ref().unwrap();
+    let msg = cb.regular_message().unwrap();
     let Some(keyboard) = msg.reply_markup() else {
         // Actually this should be unreachable
         abort!(bot, msg, "This photo is already added.");
@@ -906,7 +889,12 @@ async fn add_photo_from_msg_to_sticker_set(
         bot.edit_message_caption(msg.chat.id, msg.id)
             .caption("Image converted, sending...")
             .await?;
-        let sticker = InputSticker::Png(InputFile::file(&dl_path));
+        let sticker = InputSticker {
+            sticker: InputFile::file(&dl_path),
+            emoji_list: vec!["💬".to_string()],
+            mask_position: None,
+            keywords: vec!["quote".to_string()],
+        };
 
         // STEP4: Set the sticker
         let bot_info = bot.get_me().await?;
@@ -941,7 +929,6 @@ async fn add_photo_from_msg_to_sticker_set(
 
         add_or_create_sticker_set(
             bot.clone(),
-            data,
             sticker,
             sticker_owner.id,
             &sticker_name,
@@ -976,7 +963,7 @@ async fn add_photo_from_msg_to_sticker_set(
             .caption(format!("Fail to convert this image into sticker: {err}"))
             .reply_markup(keyboard.clone())
             .await?;
-        redis_cli.del(lock_key)?;
+        let () = redis_cli.del(lock_key)?;
     }
 
     Ok(())
@@ -1002,7 +989,7 @@ async fn del_sticker_handler(msg: Message, bot: Bot) -> anyhow::Result<()> {
 }
 
 async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<()> {
-    let user_id = msg.from().expect("Unreachable").id;
+    let user_id = msg.from.as_ref().unwrap().id;
     let rate_limit_key = format!("YTDLP_DOWNLOAD:USER:{}", user_id);
     let mut redis_cli = data.cacher.get_conn();
     let unhandle: bool = redis::cmd("SET")
@@ -1077,7 +1064,7 @@ async fn ytdlp_handler(msg: Message, bot: Bot, data: AppData) -> anyhow::Result<
         .parse_mode(ParseMode::Html)
         .width(video.width)
         .height(video.height)
-        .thumb(InputFile::file(&video.thumbnail_filepath))
+        .thumbnail(InputFile::file(&video.thumbnail_filepath))
         .await;
 
     let clean_result = video.clean().await;
