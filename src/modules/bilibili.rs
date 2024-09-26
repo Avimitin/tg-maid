@@ -22,7 +22,7 @@ pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData, conf
         .name("BilibiliLiveRoomWatcher")
         .bot(bot)
         .data(data)
-        .heartbeat_interval(600) // 10 mins
+        .heartbeat_interval(120) // 2mins
         .build()
         .setup_subscribe_registry(config.bili_live_room_event.iter())
         .start_with_task(watch_and_response);
@@ -87,6 +87,11 @@ pub fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> anyhow::R
 
     let () = conn.set(&key, info.live_status)?;
 
+    if info.live_status == 1 {
+        let key = format!("BILI_LIVE_ROOM_STATUS:{}:KEYFRAME", info.room_id);
+        let () = conn.set(&key, &info.keyframe)?;
+    }
+
     // 255 indicate that the status is not exist before
     Ok(prev_status.unwrap_or(255))
 }
@@ -109,7 +114,7 @@ async fn watch_and_response(ctx: EventWatcher<()>) -> anyhow::Result<()> {
 
         let subscribers = ctx.get_subscribers(&room_info.uid)?;
         for chat_id in subscribers {
-            if let Err(err) = notify_live_room_changes(&ctx.bot, chat_id, &room_info).await {
+            if let Err(err) = notify_live_room_changes(&ctx, chat_id, &room_info).await {
                 tracing::error!("[BiliLiveRoom] fail to notify changes: {err}")
             }
         }
@@ -119,12 +124,16 @@ async fn watch_and_response(ctx: EventWatcher<()>) -> anyhow::Result<()> {
 }
 
 async fn notify_live_room_changes(
-    bot: &teloxide::Bot,
+    ctx: &EventWatcher<()>,
     chat_id: i64,
     room_info: &RoomInfo,
 ) -> anyhow::Result<()> {
     let cover = if room_info.live_status == 0 {
-        reqwest::Url::parse(&room_info.keyframe)?
+        let mut conn = ctx.data.cacher.get_conn();
+        let key = format!("BILI_LIVE_ROOM_STATUS:{}:KEYFRAME", room_info.room_id);
+        let keyframe: String = conn.get(&key)?;
+        let () = conn.del(&key)?;
+        reqwest::Url::parse(&keyframe)?
     } else {
         reqwest::Url::parse(&room_info.cover_from_user)?
     };
@@ -134,7 +143,8 @@ async fn notify_live_room_changes(
         return Ok(());
     }
     let caption = caption.unwrap();
-    bot.send_photo(tg_type::ChatId(chat_id), tg_type::InputFile::url(cover))
+    ctx.bot
+        .send_photo(tg_type::ChatId(chat_id), tg_type::InputFile::url(cover))
         .caption(caption)
         .parse_mode(tg_type::ParseMode::Html)
         .await?;
