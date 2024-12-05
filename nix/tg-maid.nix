@@ -1,10 +1,8 @@
-{ makeRustPlatform
-, myRustToolchain
+{ rustPlatform
 , pkg-config
 , mold
 , openssl
-, myFont
-, version
+, quote-fonts
 
   # dev deps
 , rust-analyzer-unwrapped
@@ -14,15 +12,9 @@
 , git
 }:
 let
-  myRustPlatform = makeRustPlatform {
-    cargo = myRustToolchain;
-    rustc = myRustToolchain;
-  };
-
-  self = myRustPlatform.buildRustPackage
+  self = rustPlatform.buildRustPackage
     {
-      pname = "tg-maid";
-      inherit version;
+      name = "tg-maid";
 
       src = ../.;
 
@@ -39,11 +31,11 @@ let
       # Some test require proper env, which is not available during build
       doCheck = false;
 
-      # Export font path
-      QUOTE_TEXT_FONT_PATH = myFont.bold;
-      QUOTE_USERNAME_FONT_PATH = myFont.light;
+      env = {
+        QUOTE_TEXT_FONT_PATH = quote-fonts.bold;
+        QUOTE_USERNAME_FONT_PATH = quote-fonts.light;
+      };
 
-      passthru.rustPlatform = myRustPlatform;
       passthru.devShell = self.overrideAttrs (old: {
 
         nativeBuildInputs = old.nativeBuildInputs ++ [
@@ -53,11 +45,6 @@ let
           redis
           git
         ];
-
-        env = {
-          # To make rust-analyzer work correctly (The path prefix issue)
-          RUST_SRC_PATH = "${myRustToolchain}/lib/rustlib/src/rust/library";
-        };
 
         shellHook = ''
           redisWorkDir="./.cache/redis"
