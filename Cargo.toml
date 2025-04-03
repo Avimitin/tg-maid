@@ -26,6 +26,7 @@ make-quote = "0.5.3"
 tempfile = "3.14.0"
 image = "0.25.5"
 walkdir = "2.5.0"
+which = "7.0.2"
 
 # Cache Management
 r2d2 = "0.8.10"

@@ -50,7 +50,9 @@ impl YtdlpVideo {
             .collect::<Vec<_>>()
             .join("/");
 
-        let mut info = process::Command::new("yt-dlp");
+        use which::which;
+        let ytdlp = which("yt-dlp").expect("can not found yt-dlp program");
+        let mut info = process::Command::new(ytdlp.to_str().unwrap());
         info.arg(url)
             .arg("--format")
             .arg(&video_format)
