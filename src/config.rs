@@ -60,9 +60,7 @@ impl Config {
 
         let config =
             toml::from_str::<Config>(&content).with_context(|| "fail to parse config from toml")?;
-        if let None = CONFIG.get() {
-            let _ = CONFIG.set(toml::from_str::<Config>(&content).with_context(|| "fail to parse config from toml")?);
-        }
+
         Ok(config)
     }
 
