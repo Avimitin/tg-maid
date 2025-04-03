@@ -21,9 +21,20 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn run() -> anyhow::Result<()> {
+    use std::time::Duration;
     let config = Config::from_path()?;
-
-    let bot = teloxide::Bot::new(&config.bot_token);
+    let bot = if let Some(proxy_url) = config.proxy.telegram() {
+        // use teloxide default config
+        let client = reqwest::Client::builder()
+            .proxy(reqwest::Proxy::all(proxy_url)?)
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(17))
+            .tcp_nodelay(true)
+            .build()?;
+        teloxide::Bot::with_client(&config.bot_token, client)
+    } else {
+        teloxide::Bot::new(&config.bot_token)
+    };
 
     let handler = handlers::handler_schema();
     let dialogue_state = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
@@ -48,8 +59,18 @@ fn prepare_cache(cfg: &Config) -> Cacher {
     Cacher::new(client)
 }
 
-fn prepare_deepl(cfg: &Config) -> DeepLApi {
-    DeepLApi::with(&cfg.deepl.api_key).new()
+pub fn prepare_deepl(cfg: &Config) -> DeepLApi {
+    use std::time::Duration;
+    let mut api_builder = DeepLApi::with(&cfg.deepl.api_key);
+    if let Some(proxy_url) = cfg.proxy.deepl() {
+        let client = reqwest::Client::builder()
+            .proxy(reqwest::Proxy::all(proxy_url).expect("proxy url not available"))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("request can not creat");
+        api_builder.client(client);
+    }
+    api_builder.new()
 }
 
 fn prepare_quote_maker() -> make_quote::QuoteProducer<'static> {

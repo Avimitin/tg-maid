@@ -3,6 +3,7 @@ use redis::Commands;
 use serde::Deserialize;
 use std::collections::HashMap;
 use teloxide::{payloads::SendPhotoSetters, prelude::Requester, types as tg_type};
+use crate::http::HttpClient;
 
 pub struct BiliApi;
 impl BiliApi {
@@ -18,10 +19,24 @@ struct Response {
 }
 
 pub fn spawn_bilibili_live_room_listener(bot: teloxide::Bot, data: AppData, config: &Config) {
+    use crate::http::HttpClient;
+    use std::time::Duration;
+    let client = if let Some(proxu_url) = config.proxy.bilibili() {
+        let reqwest = reqwest::Client::builder()
+            .proxy(reqwest::Proxy::all(proxu_url).expect("proxy url not available"))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .unwrap();
+        Some(HttpClient(reqwest))
+    } else {
+        None
+    };
+
     EventWatcher::builder()
         .name("BilibiliLiveRoomWatcher")
         .bot(bot)
         .data(data)
+        .client(client)
         .heartbeat_interval(120) // 2mins
         .build()
         .setup_subscribe_registry(config.bili_live_room_event.iter())
@@ -65,11 +80,12 @@ impl RoomInfo {
 
 pub async fn batch_get_room_info(
     data: &AppData,
+    client: Option<&HttpClient>,
     user_ids: impl Iterator<Item = &u64>,
 ) -> anyhow::Result<HashMap<String, RoomInfo>> {
     let payload = HashMap::from([("uids", user_ids.collect::<Vec<_>>())]);
-    let info = data
-        .requester
+    let info = client
+        .unwrap_or(&data.requester)
         .post_json_to_t::<Response>(&payload, BiliApi::BATCH_ROOM_INFO)
         .await?;
 
@@ -98,7 +114,7 @@ pub fn cache_bili_live_room_status(data: &AppData, info: &RoomInfo) -> anyhow::R
 
 async fn watch_and_response(ctx: EventWatcher<()>) -> anyhow::Result<()> {
     let subscribed_rooms = ctx.event_pool()?;
-    let response = batch_get_room_info(&ctx.data, subscribed_rooms.iter()).await?;
+    let response = batch_get_room_info(&ctx.data, ctx.client.as_ref(), subscribed_rooms.iter()).await?;
 
     for (_, room_info) in response {
         let prev_status = cache_bili_live_room_status(&ctx.data, &room_info);

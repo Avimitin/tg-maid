@@ -46,6 +46,17 @@ The below table describe all the configuration:
 |---------------------------|---------------------------------------------------------|------------------------------------------------------------------|
 | String (Telegram Chat ID) | `List[Number]` (List of Streamer **UID** Not Room ID!!) | Per chat configuration for notifying bilibili live stream status |
 
+- Proxy (Optional) : `proxy`
+
+| Key      | Value Type                | Docs                                                                                                                                                                                       |
+|----------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| default  | String (Optional)         | Proxy URL                                                                                                                                                                                  |
+| telegram | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
+| youtube  | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
+| deepl    | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
+| bilibili | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
+
+> Fill in this option if you need to use a web proxy because your network cannot access certain services directly.
 
 Below is an example configuration:
 
@@ -61,6 +72,14 @@ api_key = "abcde"
 [bili_live_room_event]
 "-10012345" = [ 1000, 2000, 3000 ]
 "-10054321" = [ 1000, 2000, 3000 ]
+
+# optional
+[proxy]
+default = "http://127.0.0.1:7890"
+# use default URL for some services
+telegram = true
+# use another proxy for some services
+deepl = "http://127.0.0.1:7891"
 ```
 
 ## How to build
