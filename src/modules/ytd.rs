@@ -1,11 +1,11 @@
+use crate::config::Config;
+use crate::helper::Html;
 use anyhow::Context;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process;
 use walkdir::WalkDir;
-
-use crate::helper::Html;
 
 use super::video_dl::VideoDownloader;
 
@@ -50,12 +50,16 @@ impl YtdlpVideo {
             .collect::<Vec<_>>()
             .join("/");
 
-        let info = process::Command::new("yt-dlp")
-            .arg(url)
+        let mut info = process::Command::new("yt-dlp");
+        info.arg(url)
             .arg("--format")
             .arg(&video_format)
             .arg("--restrict-filenames")
-            .arg("-j")
+            .arg("-j");
+        if let Some(proxy_url) = Config::get_global_config().proxy.yt_dlp() {
+            info.arg("--proxy").arg(proxy_url);
+        }
+        let info = info
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()

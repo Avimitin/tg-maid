@@ -1,7 +1,10 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::{env, fs, path};
+
+static CONFIG: OnceLock<Config> = OnceLock::new();
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -55,7 +58,18 @@ impl Config {
         }
         let content = fs::read_to_string(file_path).with_context(|| "fail to read config file")?;
 
-        toml::from_str(&content).with_context(|| "fail to parse config from toml")
+        let config =
+            toml::from_str::<Config>(&content).with_context(|| "fail to parse config from toml")?;
+        if let None = CONFIG.get() {
+            let _ = CONFIG.set(toml::from_str::<Config>(&content).with_context(|| "fail to parse config from toml")?);
+        }
+        Ok(config)
+    }
+
+    pub fn get_global_config() -> &'static Config {
+        CONFIG.get_or_init(|| {
+            Self::from_path().unwrap()
+        })
     }
 }
 
@@ -91,6 +105,7 @@ pub struct ProxyConfig {
     telegram: Option<ProxyType>,
     deepl: Option<ProxyType>,
     bilibili: Option<ProxyType>,
+    yt_dlp: Option<ProxyType>,
 }
 
 macro_rules! proxy_getter_generate {
@@ -120,6 +135,7 @@ macro_rules! proxy_getter_generate {
 proxy_getter_generate!(telegram);
 proxy_getter_generate!(deepl);
 proxy_getter_generate!(bilibili);
+proxy_getter_generate!(yt_dlp);
 
 fn redis_addr_default() -> String {
     "redis://localhost:6379".to_string()
@@ -139,6 +155,7 @@ fn proxy_default() -> ProxyConfig {
         telegram: None,
         deepl: None,
         bilibili: None,
+        yt_dlp: None,
     }
 }
 

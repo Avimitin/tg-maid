@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn run() -> anyhow::Result<()> {
     use std::time::Duration;
-    let config = Config::from_path()?;
+    let config = Config::get_global_config();
     let bot = if let Some(proxy_url) = config.proxy.telegram() {
         // use teloxide default config
         let client = reqwest::Client::builder()
