@@ -838,8 +838,7 @@ async fn add_or_create_sticker_set(
             sticker_owner,
             sticker_name,
             sticker_title,
-            [sticker],
-            teloxide::types::StickerFormat::Static,
+            [sticker]
         )
         .await?;
     }
@@ -876,6 +875,7 @@ async fn add_photo_from_msg_to_sticker_set(
         .await?;
 
     let result: anyhow::Result<()> = (async {
+        use teloxide::types::StickerFormat;
         // STEP1: Get photo file from telegram
         let dl_path = download_photo(msg, bot.clone()).await?;
 
@@ -891,6 +891,7 @@ async fn add_photo_from_msg_to_sticker_set(
             .await?;
         let sticker = InputSticker {
             sticker: InputFile::file(&dl_path),
+            format: StickerFormat::Static,
             emoji_list: vec!["💬".to_string()],
             mask_position: None,
             keywords: vec!["quote".to_string()],

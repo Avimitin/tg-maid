@@ -6,7 +6,10 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::time::Duration;
 
-pub struct HttpClient(#[cfg(feature = "reqwest")] reqwest::Client);
+pub struct HttpClient(
+    #[cfg(feature = "reqwest")]
+    pub reqwest::Client,
+);
 
 impl Default for HttpClient {
     fn default() -> Self {

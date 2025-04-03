@@ -11,6 +11,7 @@ use tokio::sync::watch;
 use typed_builder::TypedBuilder;
 
 use crate::app::AppData;
+use crate::http::HttpClient;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State<S>(pub S);
@@ -30,6 +31,7 @@ impl<S> DerefMut for State<S> {
 
 #[derive(TypedBuilder)]
 pub struct EventWatcher<S> {
+    pub client: Option<HttpClient>,
     #[builder(setter( transform = |s: impl Display| Arc::new(s.to_string().into()) ))]
     name: Arc<Box<str>>,
     #[builder(default = 60)]
@@ -44,6 +46,7 @@ impl<S> Clone for EventWatcher<S> {
     fn clone(&self) -> Self {
         // bot & data is already wrapped by Arc
         Self {
+            client: None,
             name: Arc::clone(&self.name),
             heartbeat_interval: self.heartbeat_interval,
             bot: self.bot.clone(),
