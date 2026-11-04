@@ -38,4 +38,5 @@ pub struct RuntimeData {
     pub quote_maker: make_quote::QuoteProducer<'static>,
 
     pub url_cleaner: UrlCleaner,
+    pub concert_previews: crate::modules::apple_music::ConcertPreviews,
 }

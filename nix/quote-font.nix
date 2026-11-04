@@ -1,14 +1,15 @@
-{ fetchFromGitHub }:
+{ fetchurl }:
 let
-  noto-fonts-cjk = fetchFromGitHub {
-    owner = "googlefonts";
-    repo = "noto-cjk";
-    rev = "1c7ca85cb5195a3332e18c2b5cfe196ffb084e72";
-    sha256 = "sha256-541hsYHqjBYTBEg7ooGfX1+hJLo4QouQnVOIq8UzN7Y=";
-    sparseCheckout = [ "Sans/OTC" ];
-  };
+  # Fetch only the Japanese faces used by the bot, rather than cloning all CJK fonts.
+  base = "https://raw.githubusercontent.com/notofonts/noto-cjk/1c7ca85cb5195a3332e18c2b5cfe196ffb084e72/Sans/OTF/Japanese";
 in
 {
-  bold = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Black.ttc";
-  light = "${noto-fonts-cjk}/Sans/OTC/NotoSansCJK-Light.ttc";
+  bold = fetchurl {
+    url = "${base}/NotoSansCJKjp-Black.otf";
+    hash = "sha256-zWZoZZSoYaQv51KZCkBvztr7UbOpHWY58w+JSPehC00=";
+  };
+  light = fetchurl {
+    url = "${base}/NotoSansCJKjp-Light.otf";
+    hash = "sha256-8puCh0xugM74RXcLNeERzDvf97iyXYpB8ihQgxUuzf4=";
+  };
 }

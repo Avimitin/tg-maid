@@ -25,6 +25,7 @@ typed-builder = "0.20.0"
 make-quote = "0.5.3"
 tempfile = "3.14.0"
 image = "0.25.5"
+rusttype = "0.9.3"
 walkdir = "2.5.0"
 which = "7.0.2"
 

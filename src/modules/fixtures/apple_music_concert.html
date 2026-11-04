@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- Representative fixture based on Apple's MusicEvent and concert section formats.
+     This is not a captured live page. -->
+<html><head>
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "MusicEvent",
+  "name": "ひとひら×その感激と記録 presents \"穴 vol.4\"",
+  "url": "https://music.apple.com/us/concerts/ce.1b03d66d-296c-49f0-b2ec-7984ecc4d085",
+  "startDate": "2026-12-26T08:00:00Z",
+  "performer": [{"@type": "MusicGroup", "name": "ひとひら", "url": "https://music.apple.com/jp/artist/123456789"}],
+  "location": {
+    "@type": "Place", "name": "WWW X",
+    "address": {"streetAddress": "宇田川町13-17 ライズビル2F", "addressLocality": "渋谷区", "addressRegion": "東京都", "postalCode": "150-0042", "addressCountry": "JP"}
+  }
+}
+</script>
+</head><body>
+<script type="application/json" id="serialized-server-data">
+{"data":[{"data":{
+  "canonicalURL": "https://music.apple.com/us/concerts/ce.1b03d66d-296c-49f0-b2ec-7984ecc4d085",
+  "sections": [
+    {"itemKind":"concertDetailHeaderLockup","items":[{
+      "titleLink":{"title":"ひとひら","segue":{"actionMetrics":{"fields":{"actionDetails":{"kind":"artist"}}},"destination":{"contentDescriptor":{"kind":"artist","identifiers":{"storeAdamID":"123456789"}}}}},
+      "accessoryCalendarArtwork":{"date":"2026-12-26T08:00:00Z","timeZone":"Asia/Tokyo"}
+    }]},
+    {"itemKind":"concertDetailButtonSection","items":[{
+      "leadingButton":{"link":{"title":"Get Tickets","segue":{"$kind":"concertsGetTicketAction","ticketLinks":[
+        {"title":"eplus","segue":{"$kind":"openExternalURLAction","url":"https://eplus.jp/ana_vol4/"}}
+      ]}}},
+      "trailingButton":{"link":{"title":"Artist Station","segue":{"$kind":"openExternalURLAction","url":"https://music.apple.com/us/station/example"}}}
+    }]},
+    {"itemKind":"concertDetailList","items":[{"items":[
+      {"title":"December 26, 2026 · Saturday","subtitle":"5:00 PM","symbolArtwork":{"name":"calendar.badge.plus"},"segue":{"$kind":"addToCalendarAction","startDate":"2026-12-26T08:00:00Z","eventName":"ひとひら×その感激と記録 presents \"穴 vol.4\"","address":"宇田川町13-17 ライズビル2F, 渋谷区, 東京都"}},
+      {"title":"WWW X","subtitle":"渋谷区","symbolArtwork":{"name":"mappin.and.ellipse"},"segue":{"$kind":"openExternalURLAction","url":"https://maps.apple.com/place?name=WWW%20X"}}
+    ]}]}
+  ]
+}}]}
+</script>
+</body></html>

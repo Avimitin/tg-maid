@@ -1,37 +1,42 @@
 pkgname=tg-maid
-pkgver=r421.13bc0b5
+pkgver=r435.559d401
 pkgrel=1
 pkgdesc="My TG MAID"
 url="https://github.com/Avimitin/tg-maid"
 arch=('x86_64')
 license=('MIT')
 depends=('openssl' 'yt-dlp' 'ffmpeg' 'redis')
-makedepends=('git' 'cargo' 'mold' 'noto-fonts-cjk' 'git')
-source=("${pkgname}::git+${url}.git")
-sha256sums=('SKIP')
-options=(!lto)
-
-pkgver() {
-	cd "${srcdir}/${pkgname}"
-	printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
+makedepends=('rust' 'mold' 'pkgconf')
+# Create this archive from the uploaded working tree, with a tg-maid/ root,
+# excluding dist/ to keep the source checksum independent of this recipe.
+_font_url='https://raw.githubusercontent.com/notofonts/noto-cjk/1c7ca85cb5195a3332e18c2b5cfe196ffb084e72/Sans/OTF/Japanese'
+source=('tg-maid-source.tar.gz'
+        "${_font_url}/NotoSansCJKjp-Black.otf"
+        "${_font_url}/NotoSansCJKjp-Light.otf")
+sha256sums=('17b7614e6769500987f51acf277c27b7f2a95fad1f7f395abba041cf3aa56c2f'
+            'cd66686594a861a42fe752990a406fcedafb51b3a91d6639f30f8948f7a10b4d'
+            'f29b82874c6e80cef845770b35e111cc3bdff7b8b25d8a41f2285083152ecdfe')
+options=(!lto !debug)
 
 prepare() {
-	cd "${pkgname}"
-	export RUSTUP_TOOLCHAIN=stable
+	cd "${srcdir}/${pkgname}"
 	cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
 }
 
 build() {
-	cd "${pkgname}"
-	export RUSTUP_TOOLCHAIN=stable
+	cd "${srcdir}/${pkgname}"
 	export CARGO_TARGET_DIR=target
-	export QUOTE_TEXT_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc
-	export QUOTE_USERNAME_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc
-	cargo build --frozen --release --all-features
+	# Keep compilation within the memory available on the deployment host.
+	export CARGO_BUILD_JOBS=1
+	export CARGO_PROFILE_RELEASE_LTO=thin
+	# makepkg's RUSTFLAGS override .cargo/config.toml, so select mold here too.
+	export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=mold"
+	export QUOTE_TEXT_FONT_PATH="${srcdir}/NotoSansCJKjp-Black.otf"
+	export QUOTE_USERNAME_FONT_PATH="${srcdir}/NotoSansCJKjp-Light.otf"
+	cargo build --frozen --release --all-features --bin tgbot
 }
 
 package() {
-	cd "${pkgname}"
+	cd "${srcdir}/${pkgname}"
 	install -Dm 755 target/release/tgbot "${pkgdir}/usr/lib/tg-maid/tgbot"
 }

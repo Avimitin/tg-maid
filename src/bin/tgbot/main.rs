@@ -38,7 +38,7 @@ async fn run() -> anyhow::Result<()> {
 
     let handler = handlers::handler_schema();
     let dialogue_state = dialogue::InMemStorage::<handlers::DialogueStatus>::new();
-    let app_data = prepare_app_data(&config).await;
+    let app_data = prepare_app_data(&config).await?;
 
     modules::health::spawn_healthcheck_listner(config.health_check_port);
     modules::bilibili::spawn_bilibili_live_room_listener(bot.clone(), app_data.clone(), &config);
@@ -89,14 +89,17 @@ fn url_cleaner() -> UrlCleaner {
     UrlCleaner::from_file(&path).unwrap()
 }
 
-async fn prepare_app_data(cfg: &Config) -> AppData {
+async fn prepare_app_data(cfg: &Config) -> anyhow::Result<AppData> {
     let data = RuntimeData::builder()
         .cacher(prepare_cache(cfg))
         .requester(HttpClient::new())
         .deepl(prepare_deepl(cfg))
         .quote_maker(prepare_quote_maker())
         .url_cleaner(url_cleaner())
+        .concert_previews(modules::apple_music::ConcertPreviews::new(
+            cfg.proxy.apple_music(),
+        )?)
         .build();
 
-    data.into()
+    Ok(data.into())
 }

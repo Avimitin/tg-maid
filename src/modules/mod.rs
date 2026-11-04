@@ -1,7 +1,9 @@
 // Provider Module
+pub mod apple_music;
 pub mod archlinux;
 pub mod bilibili;
 pub mod collect;
+pub mod concert_card;
 pub mod currency;
 pub mod ehentai;
 pub mod health;

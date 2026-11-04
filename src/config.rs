@@ -65,9 +65,7 @@ impl Config {
     }
 
     pub fn get_global_config() -> &'static Config {
-        CONFIG.get_or_init(|| {
-            Self::from_path().unwrap()
-        })
+        CONFIG.get_or_init(|| Self::from_path().unwrap())
     }
 }
 
@@ -104,6 +102,7 @@ pub struct ProxyConfig {
     deepl: Option<ProxyType>,
     bilibili: Option<ProxyType>,
     yt_dlp: Option<ProxyType>,
+    apple_music: Option<ProxyType>,
 }
 
 macro_rules! proxy_getter_generate {
@@ -134,6 +133,7 @@ proxy_getter_generate!(telegram);
 proxy_getter_generate!(deepl);
 proxy_getter_generate!(bilibili);
 proxy_getter_generate!(yt_dlp);
+proxy_getter_generate!(apple_music);
 
 fn redis_addr_default() -> String {
     "redis://localhost:6379".to_string()
@@ -154,12 +154,13 @@ fn proxy_default() -> ProxyConfig {
         deepl: None,
         bilibili: None,
         yt_dlp: None,
+        apple_music: None,
     }
 }
 
 #[test]
 fn validate_file_correctness() {
-    std::env::set_var("XDG_CONFIG_HOME", env::temp_dir().join("tg-maid-test-dir"));
+    let directory = tempfile::tempdir().unwrap();
     let config = r#"
         bot_token = "abcde"
         redis_addr = "redis://localhost"
@@ -173,12 +174,32 @@ fn validate_file_correctness() {
         "-10012345" = [ 1000, 2000, 3000 ]
         "-10054321" = [ 1000, 2000, 3000 ]
     "#;
-    let path = env::temp_dir().join("tg-maid-test-dir").join("tg_maid");
-    fs::create_dir_all(env::temp_dir().join("tg-maid-test-dir").join("tg_maid")).unwrap();
-    fs::write(path.join("config.toml"), config).unwrap();
-
-    let config = Config::from_path().unwrap();
+    let path = directory.path().join("config.toml");
+    fs::write(&path, config).unwrap();
+    let previous = env::var_os("TG_MAID_CFG_PATH");
+    env::set_var("TG_MAID_CFG_PATH", path);
+    let config = Config::from_path();
+    if let Some(previous) = previous {
+        env::set_var("TG_MAID_CFG_PATH", previous);
+    } else {
+        env::remove_var("TG_MAID_CFG_PATH");
+    }
+    let config = config.unwrap();
     assert_eq!(config.bot_token, "abcde");
+    assert_eq!(config.proxy.apple_music(), None);
+}
 
-    fs::remove_dir(env::temp_dir().join("tg-maid-test-dir")).unwrap();
+#[test]
+fn apple_music_proxy_configuration() {
+    for (setting, expected) in [
+        ("true", Some("http://localhost:7890")),
+        ("false", None),
+        ("\"http://localhost:7891\"", Some("http://localhost:7891")),
+    ] {
+        let proxy: ProxyConfig = toml::from_str(&format!(
+            "default = \"http://localhost:7890\"\napple_music = {setting}"
+        ))
+        .unwrap();
+        assert_eq!(proxy.apple_music(), expected);
+    }
 }

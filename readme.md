@@ -2,6 +2,44 @@
 
 My utility bot.
 
+## Apple Music concert previews
+
+Posting an Apple Music concert URL triggers a PNG card rendered in Rust using the
+bundled CJK fonts. The card shows the event title, listed artist, listed time with
+timezone or UTC offset, venue, and available address. Its concise caption links to
+the artist, ticket booking (when provided), and the Apple Music event.
+Apple's share artwork (circular artist photo with its calendar badge) appears on
+the left, with event details on the right against a matching light background.
+If artwork is missing or unavailable, a simple music placeholder is used.
+
+Preview detection runs even when URL cleanup makes no changes or fails. Duplicate
+event IDs across storefronts are handled once per message. Successful extraction
+is cached in memory for 30 minutes (up to 256 events); later messages still receive
+a preview. Extraction or rendering failures fall back to normal URL cleanup:
+changed links are sent, unchanged links produce no reply.
+
+The extractor reads public MusicEvent JSON and concert sections embedded in Apple's
+page, with a US storefront retry. It verifies the event ID and rejects redirects to
+unrelated pages. Apple's HTML format can change, and regional redirects can prevent
+retrieval. Set `apple_music = true` under `[proxy]` to use the configured default
+proxy, or provide a proxy URL directly. No browser or Apple developer key is required.
+The listed time is not labeled as doors or performance start, and missing artists or
+ticket URLs are not inferred from the event title.
+
+To generate a card locally without sending Telegram messages:
+
+```bash
+nix develop
+cargo run --example concert_preview -- \
+  'https://music.apple.com/jp/concerts/ce.1b03d66d-296c-49f0-b2ec-7984ecc4d085' \
+  /tmp/concert.png
+```
+
+The example accepts `APPLE_MUSIC_PROXY` for its optional proxy. Run the offline
+preview tests with `cargo test apple_music --lib` and
+`cargo test url_preview_tests --bin tgbot`. Parser fixtures are representative
+samples of Apple's published page format, not captured live responses.
+
 ## Run with docker-compose (Recommended)
 
 ```bash
@@ -55,6 +93,7 @@ The below table describe all the configuration:
 | youtube  | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
 | deepl    | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
 | bilibili | String or bool (Optional) | When filled in as a string, this string is used as the proxy URL, when filled in as `true`, the `default` URL is used as the proxy, which will be invalid if the `default` does not exist. |
+| apple_music | String or bool (Optional) | Proxy for fetching Apple Music concert pages; `true` uses `default`. |
 
 > Fill in this option if you need to use a web proxy because your network cannot access certain services directly.
 
