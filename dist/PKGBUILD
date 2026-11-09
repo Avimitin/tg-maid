@@ -28,6 +28,7 @@ build() {
 	export RUSTFLAGS="${RUSTFLAGS} -C link-arg=-fuse-ld=mold"
 	export QUOTE_TEXT_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Black.ttc
 	export QUOTE_USERNAME_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc
+	export CARD_REGULAR_FONT_PATH=/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc
 	cargo build --frozen --release --all-features --bin tgbot
 }
 

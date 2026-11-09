@@ -3,7 +3,9 @@ use std::io::Cursor;
 
 use anyhow::{Context, Result};
 use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
-use rusttype::{point, Font, Scale};
+use rusttype::Font;
+
+use super::card_drawing::{decode_artwork, draw, width, wrap};
 
 use super::apple_music::Concert;
 
@@ -215,16 +217,6 @@ fn segment_distance(p: (f32, f32), a: (f32, f32), b: (f32, f32)) -> f32 {
     ((p.0 - a.0 - t * delta.0).powi(2) + (p.1 - a.1 - t * delta.1).powi(2)).sqrt()
 }
 
-fn decode_artwork(bytes: &[u8]) -> Result<RgbImage> {
-    let mut reader = image::ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
-    let mut limits = image::Limits::default();
-    limits.max_image_width = Some(4096);
-    limits.max_image_height = Some(4096);
-    limits.max_alloc = Some(64 * 1024 * 1024);
-    reader.limits(limits);
-    Ok(reader.decode()?.to_rgb8())
-}
-
 /// Crop the empty margins of Apple's share card, preserving its photo, calendar,
 /// and shadow as a single composition. No artist artwork is synthesized.
 fn trim_share_background(image: &RgbImage) -> RgbImage {
@@ -253,73 +245,4 @@ fn trim_share_background(image: &RgbImage) -> RgbImage {
     right = (right + padding + 1).min(image.width());
     bottom = (bottom + padding + 1).min(image.height());
     image::imageops::crop_imm(image, left, top, right - left, bottom - top).to_image()
-}
-
-fn width(text: &str, font: &Font<'_>, size: f32) -> f32 {
-    font.layout(text, Scale::uniform(size), point(0.0, 0.0))
-        .last()
-        .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
-        .unwrap_or(0.0)
-}
-
-fn wrap(text: &str, font: &Font<'_>, size: f32, max_width: f32, max_lines: usize) -> Vec<String> {
-    let mut lines = Vec::new();
-    let mut line = String::new();
-    for ch in text.chars() {
-        line.push(ch);
-        if width(&line, font, size) > max_width {
-            if let Some(space) = line.rfind(' ').filter(|space| *space > 0) {
-                let rest = line[space + 1..].to_string();
-                line.truncate(space);
-                lines.push(line);
-                line = rest;
-            } else {
-                line.pop();
-                lines.push(line);
-                line = ch.to_string();
-            }
-        }
-    }
-    if !line.trim().is_empty() {
-        lines.push(line.trim().to_string());
-    }
-    if lines.len() > max_lines {
-        lines.truncate(max_lines);
-        if let Some(last) = lines.last_mut() {
-            while width(&format!("{last}…"), font, size) > max_width {
-                last.pop();
-            }
-            last.push('…');
-        }
-    }
-    lines
-}
-
-fn draw(
-    image: &mut RgbImage,
-    font: &Font<'_>,
-    size: f32,
-    x: u32,
-    y: u32,
-    color: [u8; 3],
-    text: &str,
-) {
-    let scale = Scale::uniform(size);
-    let baseline = y as f32 + font.v_metrics(scale).ascent;
-    for glyph in font.layout(text, scale, point(x as f32, baseline)) {
-        if let Some(bounds) = glyph.pixel_bounding_box() {
-            glyph.draw(|gx, gy, coverage| {
-                let px = bounds.min.x + gx as i32;
-                let py = bounds.min.y + gy as i32;
-                if px >= 0 && py >= 0 && px < image.width() as i32 && py < image.height() as i32 {
-                    let pixel = image.get_pixel_mut(px as u32, py as u32);
-                    for (channel, foreground) in pixel.0.iter_mut().zip(color) {
-                        *channel = (*channel as f32 * (1.0 - coverage)
-                            + foreground as f32 * coverage)
-                            .round() as u8;
-                    }
-                }
-            });
-        }
-    }
 }

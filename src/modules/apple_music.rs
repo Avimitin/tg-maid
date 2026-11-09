@@ -1,4 +1,4 @@
-//! Apple Music concert previews, extracted from the public page without a browser.
+//! Apple Music URL matching, preview handling, and public concert-page extraction.
 use std::{
     collections::HashMap,
     sync::Arc,
@@ -9,7 +9,83 @@ use anyhow::{anyhow, ensure, Context, Result};
 use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 use serde_json::Value;
+use teloxide::types::InputFile;
 use tokio::sync::Mutex;
+
+use super::{
+    apple_music_album::{AlbumLink, AlbumPreviews},
+    Sendable,
+};
+
+/// Apple-specific link variants stay behind the URL reply coordinator.
+pub(super) enum AppleUrl {
+    Concert(ConcertLink),
+    Album(AlbumLink),
+}
+
+impl AppleUrl {
+    fn parse(url: &Url) -> Option<Self> {
+        ConcertLink::parse(url)
+            .map(Self::Concert)
+            .or_else(|| AlbumLink::parse(url).map(Self::Album))
+    }
+
+    pub(super) fn key(&self) -> String {
+        match self {
+            Self::Concert(link) => format!("concert:{}", link.event_id),
+            Self::Album(link) => link.key(),
+        }
+    }
+}
+
+pub(super) fn apple_url_matcher(original: &str, cleaned: &Url) -> Option<AppleUrl> {
+    // Apple's i= parameter selects a track. Preserve it even if a generic URL
+    // cleaner strips it; otherwise recognize Apple URLs resolved by cleanup.
+    Url::parse(original)
+        .ok()
+        .as_ref()
+        .and_then(AppleUrl::parse)
+        .or_else(|| AppleUrl::parse(cleaned))
+}
+
+/// Owns Apple Music clients/caches and turns native links into generic replies.
+pub struct AppleMusic {
+    concerts: ConcertPreviews,
+    albums: AlbumPreviews,
+}
+
+impl AppleMusic {
+    pub fn new(proxy: Option<&str>) -> Result<Self> {
+        Ok(Self {
+            concerts: ConcertPreviews::new(proxy)?,
+            albums: AlbumPreviews::new(proxy)?,
+        })
+    }
+
+    pub(super) async fn handle_url(&self, link: AppleUrl) -> Result<Sendable> {
+        let (png, caption, filename) = match link {
+            AppleUrl::Concert(link) => {
+                let concert = self.concerts.get(&link).await?;
+                let caption = concert.caption_html(&link.url);
+                let png =
+                    tokio::task::spawn_blocking(move || super::concert_card::render(&concert))
+                        .await??;
+                (png, caption, "concert.png")
+            }
+            AppleUrl::Album(link) => {
+                let album = self.albums.get(&link).await?;
+                let caption = album.caption_html();
+                let png = tokio::task::spawn_blocking(move || super::album_card::render(&album))
+                    .await??;
+                (png, caption, "album.png")
+            }
+        };
+        Ok(Sendable::File(
+            InputFile::memory(png).file_name(filename),
+            Some(caption),
+        ))
+    }
+}
 
 const CACHE_TTL: Duration = Duration::from_secs(30 * 60);
 const CACHE_LIMIT: usize = 256;
@@ -500,7 +576,7 @@ fn web_url(value: &Value) -> Option<Url> {
     .then_some(url)
 }
 
-fn is_artwork_url(url: &Url) -> bool {
+pub(super) fn is_artwork_url(url: &Url) -> bool {
     url.scheme() == "https"
         && url
             .host_str()
@@ -520,6 +596,80 @@ mod tests {
 
     fn link() -> ConcertLink {
         ConcertLink::parse(&Url::parse(URL).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn apple_url_matcher_preserves_album_selection_and_language() {
+        let cleaned = Url::parse("https://music.apple.com/jp/album/example/123").unwrap();
+        let selected = format!("{cleaned}?i=456&l=en-US&utm_source=test");
+        let AppleUrl::Album(album) = apple_url_matcher(&selected, &cleaned).unwrap() else {
+            panic!("Expected album");
+        };
+        assert_eq!(album.track_id.as_deref(), Some("456"));
+        assert_eq!(album.url.query(), Some("i=456&l=en-US"));
+    }
+
+    #[test]
+    fn album_keys_distinguish_tracks_but_not_storefront_aliases() {
+        let parse = |url: &str| AppleUrl::parse(&Url::parse(url).unwrap()).unwrap().key();
+        let track = parse("https://music.apple.com/jp/album/example/123?i=456");
+        assert_ne!(
+            track,
+            parse("https://music.apple.com/jp/album/example/123?i=789")
+        );
+        assert_ne!(track, parse("https://music.apple.com/jp/album/example/123"));
+        assert_eq!(
+            track,
+            parse("https://music.apple.com/us/album/alias/123?i=456&l=en-US")
+        );
+    }
+
+    async fn cached_apple_music() -> AppleMusic {
+        let apple_music = AppleMusic::new(Some("http://127.0.0.1:0")).unwrap();
+        apple_music.concerts.cache.lock().await.insert(
+            link().event_id,
+            (Instant::now(), parse_page(FIXTURE, &link()).unwrap()),
+        );
+        apple_music
+    }
+
+    #[tokio::test]
+    async fn url_reply_uses_real_handler_for_unchanged_failed_and_resolved_cleanup() {
+        use super::super::url_preview::prepare_url_reply;
+        let apple_music = cached_apple_music().await;
+        for (original, cleaned) in [
+            (URL, Some(Url::parse(URL).unwrap())),
+            (URL, None),
+            (
+                "https://example.org/redirect",
+                Some(Url::parse(URL).unwrap()),
+            ),
+        ] {
+            let reply =
+                prepare_url_reply(original, cleaned, &mut Default::default(), &apple_music).await;
+            assert!(
+                matches!(reply, Some(Sendable::File(_, Some(caption))) if caption.contains("Apple Music"))
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn url_reply_deduplicates_only_within_a_message() {
+        use super::super::url_preview::prepare_url_reply;
+        let apple_music = cached_apple_music().await;
+        let mut seen = Default::default();
+        assert!(matches!(
+            prepare_url_reply(URL, None, &mut seen, &apple_music).await,
+            Some(Sendable::File(_, _))
+        ));
+        let alias = URL.replace("/jp/", "/us/");
+        assert!(prepare_url_reply(&alias, None, &mut seen, &apple_music)
+            .await
+            .is_none());
+        assert!(matches!(
+            prepare_url_reply(&alias, None, &mut Default::default(), &apple_music).await,
+            Some(Sendable::File(_, _))
+        ));
     }
 
     #[test]

@@ -12,4 +12,8 @@ in
     url = "${base}/NotoSansCJKjp-Light.otf";
     hash = "sha256-8puCh0xugM74RXcLNeERzDvf97iyXYpB8ihQgxUuzf4=";
   };
+  regular = fetchurl {
+    url = "${base}/NotoSansCJKjp-Regular.otf";
+    hash = "sha256-aKP8mIALKiezcfL7eZkdrzYzvYkwnU/6ppRv1YfzdbU=";
+  };
 }

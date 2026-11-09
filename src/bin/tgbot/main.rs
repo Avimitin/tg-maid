@@ -96,7 +96,7 @@ async fn prepare_app_data(cfg: &Config) -> anyhow::Result<AppData> {
         .deepl(prepare_deepl(cfg))
         .quote_maker(prepare_quote_maker())
         .url_cleaner(url_cleaner())
-        .concert_previews(modules::apple_music::ConcertPreviews::new(
+        .apple_music(modules::apple_music::AppleMusic::new(
             cfg.proxy.apple_music(),
         )?)
         .build();

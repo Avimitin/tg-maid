@@ -1,7 +1,10 @@
 // Provider Module
+pub mod album_card;
 pub mod apple_music;
+pub mod apple_music_album;
 pub mod archlinux;
 pub mod bilibili;
+mod card_drawing;
 pub mod collect;
 pub mod concert_card;
 pub mod currency;
@@ -12,6 +15,7 @@ pub mod nsfw;
 pub mod piggy;
 pub mod price;
 pub mod steam;
+pub mod url_preview;
 pub mod video_dl;
 pub mod weather;
 pub mod ytd;

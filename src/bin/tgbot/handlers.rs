@@ -2,7 +2,7 @@ use anyhow::Result;
 use image::ImageFormat;
 use rand::Rng;
 use redis::Commands;
-use std::{collections::HashSet, fmt::Write, future::Future};
+use std::collections::HashSet;
 use teloxide::{
     dispatching::{dialogue, UpdateHandler},
     net::Download,
@@ -17,7 +17,7 @@ use teloxide::{
 
 use rusty_maid::{
     app::AppData,
-    modules::{self, price::PriceInfo, Sendable},
+    modules::{self, price::PriceInfo, url_preview::prepare_url_reply, Sendable},
     sendable,
 };
 
@@ -192,152 +192,31 @@ async fn plain_message_handler(msg: Message, bot: Bot, app_data: AppData) -> any
         return Ok(());
     }
 
-    let mut data = Vec::new();
-    let mut seen_concerts = HashSet::new();
-    let previews = &app_data.concert_previews;
+    let mut seen_previews = HashSet::new();
 
     for url in urls {
         let cleaned = app_data.url_cleaner.clear(url).await.ok();
-        let reply = prepare_url_reply(url, cleaned, &mut seen_concerts, |link| async move {
-            let concert = previews.get(&link).await?;
-            let caption = concert.caption_html(&link.url);
-            let png = tokio::task::spawn_blocking(move || modules::concert_card::render(&concert))
-                .await??;
-            Ok((png, caption))
-        })
-        .await;
+        let reply =
+            prepare_url_reply(url, cleaned, &mut seen_previews, &app_data.apple_music).await;
         match reply {
-            Some(UrlReply::Concert(png, caption)) => {
-                bot.send_photo(msg.chat.id, InputFile::memory(png).file_name("concert.png"))
-                    .caption(caption)
+            Some(Sendable::File(file, caption)) => {
+                let mut request = bot
+                    .send_photo(msg.chat.id, file)
                     .parse_mode(ParseMode::Html)
-                    .reply_parameters(teloxide::types::ReplyParameters::new(msg.id))
-                    .await?;
+                    .reply_parameters(teloxide::types::ReplyParameters::new(msg.id));
+                if let Some(caption) = caption {
+                    request = request.caption(caption);
+                }
+                request.await?;
             }
-            Some(UrlReply::Cleaned(url)) => data.push(url),
+            Some(Sendable::Text(text)) => {
+                bot.send_message(msg.chat.id, text).await?;
+            }
             None => {}
         }
     }
 
-    if !data.is_empty() {
-        bot.send_message(
-            msg.chat.id,
-            format!(
-                "Clean URLs\n{}",
-                data.iter().fold(String::new(), |mut acc, item| {
-                    writeln!(&mut acc, "* {item}").unwrap();
-                    acc
-                })
-            ),
-        )
-        .await?;
-    }
-
     Ok(())
-}
-
-enum UrlReply {
-    Concert(Vec<u8>, String),
-    Cleaned(reqwest::Url),
-}
-
-#[cfg(test)]
-mod url_preview_tests {
-    use super::*;
-    const URL: &str = "https://music.apple.com/jp/concerts/ce.1b03d66d-296c-49f0-b2ec-7984ecc4d085";
-
-    #[tokio::test]
-    async fn unchanged_url_and_cleaner_failure_still_get_previews() {
-        for cleaned in [Some(reqwest::Url::parse(URL).unwrap()), None] {
-            let reply = prepare_url_reply(URL, cleaned, &mut HashSet::new(), |_| async {
-                Ok((vec![1], "preview".into()))
-            })
-            .await;
-            assert!(matches!(reply, Some(UrlReply::Concert(_, _))));
-        }
-    }
-
-    #[tokio::test]
-    async fn preview_failure_preserves_cleanup_policy() {
-        let changed = format!("{URL}?utm_source=test");
-        for (original, expect_cleaned) in [(changed.as_str(), true), (URL, false)] {
-            let reply = prepare_url_reply(
-                original,
-                Some(reqwest::Url::parse(URL).unwrap()),
-                &mut HashSet::new(),
-                |_| async { anyhow::bail!("Apple unavailable") },
-            )
-            .await;
-            assert_eq!(matches!(reply, Some(UrlReply::Cleaned(_))), expect_cleaned);
-        }
-    }
-
-    #[tokio::test]
-    async fn duplicate_event_is_suppressed_only_within_message() {
-        let mut seen = HashSet::new();
-        let reply = prepare_url_reply(URL, None, &mut seen, |_| async {
-            Ok((vec![], String::new()))
-        })
-        .await;
-        assert!(matches!(reply, Some(UrlReply::Concert(_, _))));
-        let us = URL.replace("/jp/", "/us/");
-        assert!(prepare_url_reply(&us, None, &mut seen, |_| async {
-            panic!("duplicate fetch")
-        })
-        .await
-        .is_none());
-        assert!(
-            prepare_url_reply(&us, None, &mut HashSet::new(), |_| async {
-                Ok((vec![], String::new()))
-            })
-            .await
-            .is_some()
-        );
-    }
-
-    #[tokio::test]
-    async fn unrelated_urls_only_use_cleanup() {
-        for (original, expect_cleaned) in [
-            ("https://example.org/?utm_source=test", true),
-            ("https://example.org/", false),
-        ] {
-            let reply = prepare_url_reply(
-                original,
-                Some(reqwest::Url::parse("https://example.org/").unwrap()),
-                &mut HashSet::new(),
-                |_| async { panic!("unsupported provider") },
-            )
-            .await;
-            assert_eq!(matches!(reply, Some(UrlReply::Cleaned(_))), expect_cleaned);
-        }
-    }
-}
-
-// A URL can need a preview even when the cleaner made no change or failed.
-// Keep this decision separate from Telegram delivery so fallback is testable.
-async fn prepare_url_reply<F, Fut>(
-    original: &str,
-    cleaned: Option<reqwest::Url>,
-    seen_concerts: &mut HashSet<String>,
-    preview: F,
-) -> Option<UrlReply>
-where
-    F: FnOnce(modules::apple_music::ConcertLink) -> Fut,
-    Fut: Future<Output = anyhow::Result<(Vec<u8>, String)>>,
-{
-    let changed = cleaned.as_ref().is_some_and(|url| url.as_str() != original);
-    let url = cleaned.or_else(|| reqwest::Url::parse(original).ok())?;
-    if let Some(link) = modules::apple_music::ConcertLink::parse(&url) {
-        if !seen_concerts.insert(link.event_id.clone()) {
-            return None;
-        }
-        let id = link.event_id.clone();
-        match preview(link).await {
-            Ok((png, caption)) => return Some(UrlReply::Concert(png, caption)),
-            Err(err) => tracing::warn!(event_id = %id, error = %err, "Concert preview unavailable"),
-        }
-    }
-    changed.then_some(UrlReply::Cleaned(url))
 }
 
 async fn callback_dispatcher(cb: CallbackQuery, bot: Bot, app_data: AppData) -> anyhow::Result<()> {

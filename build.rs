@@ -17,4 +17,5 @@ fn bridge_env(key: &str) {
 fn main() {
     bridge_env("QUOTE_TEXT_FONT_PATH");
     bridge_env("QUOTE_USERNAME_FONT_PATH");
+    bridge_env("CARD_REGULAR_FONT_PATH");
 }

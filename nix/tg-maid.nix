@@ -20,6 +20,7 @@ let
   fontEnv = {
     QUOTE_TEXT_FONT_PATH = quote-fonts.bold;
     QUOTE_USERNAME_FONT_PATH = quote-fonts.light;
+    CARD_REGULAR_FONT_PATH = quote-fonts.regular;
   };
   self = rustPlatform.buildRustPackage
     {
