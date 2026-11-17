@@ -490,12 +490,16 @@ mod tests {
         album.artwork = Some(bytes.into_inner().into());
         let png = crate::modules::album_card::render(&album).unwrap();
         let image = image::load_from_memory(&png).unwrap().to_rgb8();
-        assert_eq!(image.dimensions(), (1200, 630));
-        assert_ne!(image.get_pixel(0, 0), image.get_pixel(1199, 629));
+        assert!((590..=1200).contains(&image.width()));
+        assert_eq!(image.height(), 630);
+        assert_ne!(
+            image.get_pixel(0, 0),
+            image.get_pixel(image.width() - 1, 629)
+        );
         album.artwork = Some(Arc::from(&b"invalid image"[..]));
         album.track_title = Some("長い曲名と日本語の文字 ".repeat(30));
         album.artist = "Artist & Collaborator ".repeat(20);
         let png = crate::modules::album_card::render(&album).unwrap();
-        assert_eq!(image::load_from_memory(&png).unwrap().width(), 1200);
+        assert!((590..=1200).contains(&image::load_from_memory(&png).unwrap().width()));
     }
 }

@@ -1,7 +1,7 @@
 //! Shared bounded image decoding and CJK text layout for preview cards.
 use anyhow::Result;
 use image::RgbImage;
-use rusttype::{point, Font, Scale};
+use rusttype::{point, Font, Point, PositionedGlyph, Scale};
 use std::io::Cursor;
 
 pub(super) fn decode_artwork(bytes: &[u8]) -> Result<RgbImage> {
@@ -15,7 +15,11 @@ pub(super) fn decode_artwork(bytes: &[u8]) -> Result<RgbImage> {
 }
 
 pub(super) fn width(text: &str, font: &Font<'_>, size: f32) -> f32 {
-    font.layout(text, Scale::uniform(size), point(0.0, 0.0))
+    width_tracked(text, font, size, 0.0)
+}
+
+pub(super) fn width_tracked(text: &str, font: &Font<'_>, size: f32, tracking: f32) -> f32 {
+    layout_tracked(text, font, size, tracking, point(0.0, 0.0))
         .last()
         .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
         .unwrap_or(0.0)
@@ -28,11 +32,22 @@ pub(super) fn wrap(
     max_width: f32,
     max_lines: usize,
 ) -> Vec<String> {
+    wrap_tracked(text, font, size, max_width, max_lines, 0.0)
+}
+
+pub(super) fn wrap_tracked(
+    text: &str,
+    font: &Font<'_>,
+    size: f32,
+    max_width: f32,
+    max_lines: usize,
+    tracking: f32,
+) -> Vec<String> {
     let mut lines = Vec::new();
     let mut line = String::new();
     for ch in text.chars() {
         line.push(ch);
-        if width(&line, font, size) > max_width {
+        if width_tracked(&line, font, size, tracking) > max_width {
             if let Some(space) = line.rfind(' ').filter(|space| *space > 0) {
                 let rest = line[space + 1..].to_string();
                 line.truncate(space);
@@ -51,7 +66,7 @@ pub(super) fn wrap(
     if lines.len() > max_lines {
         lines.truncate(max_lines);
         if let Some(last) = lines.last_mut() {
-            while width(&format!("{last}…"), font, size) > max_width {
+            while width_tracked(&format!("{last}…"), font, size, tracking) > max_width {
                 last.pop();
             }
             last.push('…');
@@ -69,9 +84,21 @@ pub(super) fn draw(
     color: [u8; 3],
     text: &str,
 ) {
+    draw_tracked(image, font, size, 0.0, (x, y), color, text);
+}
+
+pub(super) fn draw_tracked(
+    image: &mut RgbImage,
+    font: &Font<'_>,
+    size: f32,
+    tracking: f32,
+    (x, y): (u32, u32),
+    color: [u8; 3],
+    text: &str,
+) {
     let scale = Scale::uniform(size);
     let baseline = y as f32 + font.v_metrics(scale).ascent;
-    for glyph in font.layout(text, scale, point(x as f32, baseline)) {
+    for glyph in layout_tracked(text, font, size, tracking, point(x as f32, baseline)) {
         if let Some(bounds) = glyph.pixel_bounding_box() {
             glyph.draw(|gx, gy, coverage| {
                 let px = bounds.min.x + gx as i32;
@@ -87,4 +114,39 @@ pub(super) fn draw(
             });
         }
     }
+}
+
+fn layout_tracked<'text, 'font>(
+    text: &'text str,
+    font: &'text Font<'font>,
+    size: f32,
+    tracking: f32,
+    origin: Point<f32>,
+) -> impl Iterator<Item = PositionedGlyph<'font>> + 'text {
+    let mut offset = 0.0;
+    let mut right_edge: Option<f32> = None;
+    font.layout(text, Scale::uniform(size), origin)
+        .enumerate()
+        .map(move |(index, mut glyph)| {
+            let advancing = glyph.unpositioned().h_metrics().advance_width > 0.0;
+            if index > 0 && advancing {
+                offset += tracking;
+            }
+            let mut position = glyph.position();
+            position.x += offset;
+            if tracking < 0.0 && advancing {
+                if let Some(bounds) = glyph.unpositioned().exact_bounding_box() {
+                    // Keep a pixel between outlines when tightening letters. Zero-advance
+                    // combining marks retain their original placement on the base glyph.
+                    if let Some(right) = right_edge {
+                        let clearance = (right + 1.0 - position.x - bounds.min.x).max(0.0);
+                        offset += clearance;
+                        position.x += clearance;
+                    }
+                    right_edge = Some(position.x + bounds.max.x);
+                }
+            }
+            glyph.set_position(position);
+            glyph
+        })
 }
